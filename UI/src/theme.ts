@@ -1,4 +1,4 @@
-import { createTheme, MantineColorsTuple } from '@mantine/core';
+import { createTheme, MantineColorsTuple, MantineTheme } from '@mantine/core';
 
 // Blueprint tone based on #1581F3
 const blueprint: MantineColorsTuple = [
@@ -33,7 +33,7 @@ export const blueprintTheme = createTheme({
 
   components: {
     Paper: {
-      styles: (theme) => ({
+      styles: (theme: MantineTheme) => ({
         root: {
           backgroundColor: blueprint[8],
           color: blueprint[0],           // text
@@ -41,7 +41,7 @@ export const blueprintTheme = createTheme({
       }),
     },
     Button: {
-      styles: (theme) => ({
+      styles: (theme: MantineTheme) => ({
         root: {
           backgroundColor: blueprint[5],
           color: theme.white,
