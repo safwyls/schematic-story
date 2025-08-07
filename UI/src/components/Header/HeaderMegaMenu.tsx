@@ -105,7 +105,7 @@ export function HeaderMegaMenu() {
       <header className={classes.header}>
         <Group justify="space-between" h="100%">
           <Group h="100%" gap={0} visibleFrom="sm">
-          <a href="/"><SchematicStoryLogo h={60}/></a>
+          <a href="/"><SchematicStoryLogo height={60}/></a>
             <a href="/" className={classes.link}>
               Home
             </a>
