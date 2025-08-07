@@ -1,6 +1,5 @@
 # Schematic Story
-
-## Schematic Story is a community driven schematic sharing serverless web application powered by AWS-managed services and a React frontend.
+Schematic Story is a community driven schematic sharing serverless web application powered by AWS-managed services and a React frontend.
 
 # Front End
 <img width="1659" height="1273" alt="image" src="https://github.com/user-attachments/assets/62d67847-583c-472f-a11d-5423dcdc7e5d" />
