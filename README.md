@@ -1,34 +1,26 @@
-# Mantine Vite template
+# Schematic Story
 
-## Features
+## Schematic Story is a community driven schematic sharing serverless web application powered by AWS-managed services and a React frontend.
 
-This template comes with the following features:
+# Front End
+<img width="1659" height="1273" alt="image" src="https://github.com/user-attachments/assets/62d67847-583c-472f-a11d-5423dcdc7e5d" />
 
-- [PostCSS](https://postcss.org/) with [mantine-postcss-preset](https://mantine.dev/styles/postcss-preset)
-- [TypeScript](https://www.typescriptlang.org/)
-- [Storybook](https://storybook.js.org/)
-- [Vitest](https://vitest.dev/) setup with [React Testing Library](https://testing-library.com/docs/react-testing-library/intro)
-- ESLint setup with [eslint-config-mantine](https://github.com/mantinedev/eslint-config-mantine)
+# System Architecture Diagram
+For the system architecture we will be leveraging AWS services for the backend stack
+- Cognito for user pools and authentication
+- API Gateway for RESTful API endpoints
+- DynamoDB for our primary database
+- Lambda for interfacing between API Gateway and DynamoDB
+- S3 for large file and media storage
+- Cloudfront CDN for delivering S3 files to the front end
 
-## npm scripts
+For the frontend stack we will be building the application in React/Vite with Mantine for UI components and hosting the front end on Netlify, utilizing Netlify Edge for CDN.
 
-## Build and dev scripts
+<img width="1021" height="1021" alt="image" src="https://github.com/user-attachments/assets/6ef59318-843c-4e37-8e11-5402fe601fe5" />
 
-- `dev` – start development server
-- `build` – build production version of the app
-- `preview` – locally preview production build
+# DynamoDB ERD
+Even though DynamoDB is a NoSQL database, I wanted to draw out a full ERD for the application so we could properly map out all data access patterns in advance.
 
-### Testing scripts
+This is important with DynamoDB since adding additional GSIs later is a costly change.
 
-- `typecheck` – checks TypeScript types
-- `lint` – runs ESLint
-- `prettier:check` – checks files with Prettier
-- `vitest` – runs vitest tests
-- `vitest:watch` – starts vitest watch
-- `test` – runs `vitest`, `prettier:check`, `lint` and `typecheck` scripts
-
-### Other scripts
-
-- `storybook` – starts storybook dev server
-- `storybook:build` – build production storybook bundle to `storybook-static`
-- `prettier:write` – formats all files with Prettier
+<img width="1265" height="1108" alt="image" src="https://github.com/user-attachments/assets/f118d69c-d644-40af-a4c8-68799869706b" />
