@@ -13,7 +13,7 @@ For the system architecture we will be leveraging AWS services for the backend s
 - S3 for large file and media storage
 - Cloudfront CDN for delivering S3 files to the front end
 
-For the frontend stack we will be building the application in React/Vite with Mantine for UI components and hosting the front end on Netlify, utilizing Netlify Edge for CDN.
+For the frontend stack we will be building the application in React/Vite with Mantine for UI components and hosting the app on Netlify, utilizing Netlify Edge for CDN.
 
 <img width="1021" height="1021" alt="image" src="https://github.com/user-attachments/assets/6ef59318-843c-4e37-8e11-5402fe601fe5" />
 
