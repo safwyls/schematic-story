@@ -8,7 +8,7 @@ interface LogoProps {
 export function SchematicStoryLogo({ w = "auto", h = "auto" }: LogoProps) {
     return(
         <Image
-            src="src/schematicstory.svg"
+            src="src/assets/schematicstory.svg"
             alt="Schematic Story Logo"
             w={w}
             h={h}
