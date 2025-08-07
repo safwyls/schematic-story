@@ -38,7 +38,7 @@ import {
   useMantineTheme,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { SchematicStoryLogo } from '../../logo';
+import SchematicStoryLogo from "@/assets/schematicstory.svg?react";
 import classes from './HeaderMegaMenu.module.css';
 import { ColorSchemeToggle } from '../ColorSchemeToggle/ColorSchemeToggle';
 
