@@ -1,67 +1,78 @@
-import { createTheme, MantineColorsTuple, MantineTheme } from '@mantine/core';
+import { Card, Container, createTheme, Paper, rem, Select } from "@mantine/core";
+import type { MantineThemeOverride } from "@mantine/core";
 
-// Blueprint tone based on #1581F3
-const blueprint: MantineColorsTuple = [
-  '#e0f0ff', // 0 - lightest
-  '#b9d9fb',
-  '#8fc1f7',
-  '#66a9f4',
-  '#3c91f0',
-  '#1581f3', // 5 - base color
-  '#1169ca',
-  '#0d53a0',
-  '#083d76',
-  '#04264d', // 9 - darkest, good for background
-];
+const CONTAINER_SIZES: Record<string, string> = {
+  xxs: rem("200px"),
+  xs: rem("300px"),
+  sm: rem("400px"),
+  md: rem("500px"),
+  lg: rem("600px"),
+  xl: rem("1400px"),
+  xxl: rem("1600px"),
+};
 
-export const blueprintTheme = createTheme({
-  primaryColor: 'blueprint',
-  primaryShade: 5,
-
-  colors: {
-    blueprint,
+export const mantineTheme: MantineThemeOverride = createTheme({
+  /** Put your mantine theme override here */
+  fontSizes: {
+    xs: rem("12px"),
+    sm: rem("14px"),
+    md: rem("16px"),
+    lg: rem("18px"),
+    xl: rem("20px"),
+    "2xl": rem("24px"),
+    "3xl": rem("30px"),
+    "4xl": rem("36px"),
+    "5xl": rem("48px"),
   },
-
-  fontFamily: 'Roboto Mono, monospace',
-
-  defaultRadius: 'sm',
-
-  headings: {
-    fontFamily: 'Roboto Mono, monospace',
-    fontWeight: '700',
+  spacing: {
+    "3xs": rem("4px"),
+    "2xs": rem("8px"),
+    xs: rem("10px"),
+    sm: rem("12px"),
+    md: rem("16px"),
+    lg: rem("20px"),
+    xl: rem("24px"),
+    "2xl": rem("28px"),
+    "3xl": rem("32px"),
   },
-
+  primaryColor: "blue",
   components: {
-    Paper: {
-      styles: (theme: MantineTheme) => ({
+    /** Put your mantine component override here */
+    Container: Container.extend({
+      vars: (_, { size, fluid }) => ({
         root: {
-          backgroundColor: blueprint[8],
-          color: blueprint[0],           // text
+          "--container-size": fluid
+            ? "100%"
+            : size !== undefined && size in CONTAINER_SIZES
+              ? CONTAINER_SIZES[size]
+              : rem(size),
         },
       }),
-    },
-    Button: {
-      styles: (theme: MantineTheme) => ({
-        root: {
-          backgroundColor: blueprint[5],
-          color: theme.white,
-          '&:hover': {
-            backgroundColor: blueprint[6],
-          },
-        },
-      }),
-    },
-  },
+    }),
+    Paper: Paper.extend({
+      defaultProps: {
+        p: "md",
+        shadow: "xl",
+        radius: "md",
+        withBorder: true,
+      },
+    }),
 
+    Card: Card.extend({
+      defaultProps: {
+        p: "xl",
+        shadow: "xl",
+        radius: "var(--mantine-radius-default)",
+        withBorder: true,
+      },
+    }),
+    Select: Select.extend({
+      defaultProps: {
+        checkIconPosition: "right",
+      },
+    }),
+  },
   other: {
-    backgroundDefault: blueprint[5],
-    backgroundPaper: blueprint[9],
-    textPrimary: blueprint[0],
-    textSecondary: blueprint[2],
-    divider: blueprint[7],
-    error: '#FF5C5C',
-    warning: '#FFB347',
-    success: '#6BCB77',
-    info: '#3FA9F5',
+    style: "mantine",
   },
 });
