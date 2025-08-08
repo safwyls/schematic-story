@@ -1,7 +1,7 @@
 import { Box } from '@mantine/core';
-import classes from './NebulaBackground.module.css';
+import classes from './Background.module.css';
 
-export function NebulaBackground() {
+export function Background() {
   return (
     <Box className={classes.blueprint} />
   );
