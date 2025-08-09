@@ -1,17 +1,15 @@
 import '@mantine/core/styles.css';
 
 import { MantineProvider } from '@mantine/core';
-import { Router } from './Router';
+import { router } from './Router';
 import { mantineTheme } from './theme';
-import { HeaderMegaMenu } from './components/Header/HeaderMegaMenu';
-import { Background } from './components/Background/Background';
+import { RouterProvider } from 'react-router-dom';
+import "./App.css";
 
 export default function App() {
   return (
     <MantineProvider theme={mantineTheme}>
-      <Background />
-      <HeaderMegaMenu />
-      <Router />
+      <RouterProvider router={router}/>
     </MantineProvider>
   );
 }

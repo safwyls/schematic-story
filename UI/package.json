@@ -20,15 +20,21 @@
     "storybook:build": "storybook build"
   },
   "dependencies": {
+    "@blocknote/core": "^0.35.0",
+    "@blocknote/mantine": "^0.35.0",
+    "@blocknote/react": "^0.35.0",
     "@mantine/carousel": "^8.2.3",
     "@mantine/core": "8.2.3",
     "@mantine/hooks": "8.2.3",
+    "@redux-devtools/extension": "^3.3.0",
     "@tabler/icons-react": "^3.34.1",
+    "dayjs": "^1.11.13",
     "embla-carousel-react": "^8.6.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.2",
-    "vite-plugin-svgr": "^4.3.0"
+    "vite-plugin-svgr": "^4.3.0",
+    "zustand": "^5.0.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",

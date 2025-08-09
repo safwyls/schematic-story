@@ -80,7 +80,7 @@ export function SchematicCard(props: SchematicCardProps) {
             radius="xl"
             mr="xs"
           />
-          <Text fz="sm" component="a" href={"/user/" + props.author.id} inline>
+          <Text fz="xs" component="a" href={"/user/" + props.author.name} inline>
             {props.author.name}
           </Text>
         </Center>
@@ -88,9 +88,6 @@ export function SchematicCard(props: SchematicCardProps) {
         <Group gap={8} mr={0}>
           <ActionIcon className={classes.action} onClick={onHeart}>
             <IconHeart size={16} color={theme.colors.red[6]} />
-          </ActionIcon>
-          <ActionIcon className={classes.action} onClick={onSave}>
-            <IconBookmark size={16} color={theme.colors.yellow[7]} />
           </ActionIcon>
           <ActionIcon className={classes.action} onClick={onShare}>
             <IconShare size={16} color={theme.colors.blue[6]} />

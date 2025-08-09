@@ -85,7 +85,7 @@ export function SchematicsGrid(props: GridProps) {
 
     return (
         <Container fluid>
-            <SimpleGrid cols={{ base: 2, sm: 4, md: 5, lg: props.maxNumWide }} spacing={{ base: 0, sm: 'lg' }}>
+            <SimpleGrid cols={{ base: 2, sm: 4, lg: props.maxNumWide }} spacing={{ base: 0, sm: 'lg' }}>
                 {cards()}
             </SimpleGrid>
         </Container>

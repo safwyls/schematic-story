@@ -1,11 +1,12 @@
-import { Button, Container, Image, SimpleGrid, Text, Title } from '@mantine/core';
+import { Button, Container, SimpleGrid, Text, Title } from '@mantine/core';
+import NotFoundSvg from "@/assets/notfound.svg?react";
 import classes from './NotFoundImage.module.css';
 
 export function NotFoundImage() {
   return (
     <Container className={classes.root}>
       <SimpleGrid spacing={{ base: 40, sm: 80 }} cols={{ base: 1, sm: 2 }}>
-        <Image src="src/components/NotFoundImage/notfound.svg" className={classes.mobileImage} />
+        <NotFoundSvg className={classes.mobileImage} />
         <div>
           <Title className={classes.title}>Something is not right...</Title>
           <Text c="dimmed" size="lg">
@@ -16,7 +17,7 @@ export function NotFoundImage() {
             Get back to home page
           </Button>
         </div>
-        <Image src="src/components/NotFoundImage/notfound.svg" className={classes.desktopImage} />
+        <NotFoundSvg className={classes.desktopImage} />
       </SimpleGrid>
     </Container>
   );
