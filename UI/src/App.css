@@ -1,0 +1,24 @@
+/* app.css (or main.css) */
+@layer reset, vendor, app;
+
+/* Put BlockNote styles in vendor layer */
+@import "@blocknote/core/fonts/inter.css" layer(vendor);
+@import "@blocknote/mantine/style.css" layer(vendor);
+
+/* Your app styles go in the default (implicit) or app layer */
+@layer app {
+  /* Example: ensure Mantine Title is not affected */
+  .mantine-Title-root {
+    margin: 0;
+    font-weight: var(--mantine-font-weight-extra-bold);
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Apply to all in-page anchors */
+[id] {
+  scroll-margin-top: 60px; /* match your header height */
+}

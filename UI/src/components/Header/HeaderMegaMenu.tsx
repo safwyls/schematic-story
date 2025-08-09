@@ -41,6 +41,7 @@ import { useDisclosure } from '@mantine/hooks';
 import SchematicStoryLogo from "@/assets/schematicstory.svg?react";
 import classes from './HeaderMegaMenu.module.css';
 import { ColorSchemeToggle } from '../ColorSchemeToggle/ColorSchemeToggle';
+import { Link } from 'react-router-dom';
 
 const mockdata = [
   {
@@ -101,7 +102,7 @@ export function HeaderMegaMenu() {
   ));
 
   return (
-    <Box pb={60}>
+    <Box pb={60} style={{position: 'sticky', top: 0, zIndex: 1}}>
       <header className={classes.header}>
         <Group justify="space-between" h="100%">
           <Group h="100%" gap={0} visibleFrom="sm">
@@ -150,15 +151,15 @@ export function HeaderMegaMenu() {
                 </div>
               </HoverCard.Dropdown>
             </HoverCard>
-            <a href="https://mods.vintagestory.at" target="_blank" className={classes.link}>
+            <Anchor href="https://mods.vintagestory.at" target="_blank" className={classes.link}>
               ModDB
-            </a>
-            <a href="#" className={classes.link}>
+            </Anchor>
+            <Anchor href="/#faq" className={classes.link}>
               FAQ
-            </a>
-            <a href="#" className={classes.link}>
+            </Anchor>
+            <Link to="/#contact-us" className={classes.link}>
               About
-            </a>
+            </Link>
           </Group>
 
           <Group visibleFrom="sm">
