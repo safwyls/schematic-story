@@ -1,0 +1,31 @@
+{
+  "name": "schematic-story-api",
+  "version": "1.0.0",
+  "description": "Serverless API for Schematic Story",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "deploy": "./deploy.sh",
+    "deploy:prod": "Environment=production ./deploy.sh",
+    "test:api": "node test-api.js",
+    "logs": "sam logs -n GetUserFunction --stack-name schematic-story-api --tail"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.478.0",
+    "@aws-sdk/client-s3": "^3.864.0",
+    "@aws-sdk/lib-dynamodb": "^3.478.0",
+    "@aws-sdk/s3-request-presigner": "^3.864.0",
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.130",
+    "@types/jest": "^29.5.11",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.10.5",
+    "@types/uuid": "^9.0.7",
+    "esbuild": "^0.19.10",
+    "jest": "^29.7.0",
+    "typescript": "^5.3.3"
+  }
+}

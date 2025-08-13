@@ -42,6 +42,7 @@ import SchematicStoryLogo from "@/assets/schematicstory.svg?react";
 import classes from './HeaderMegaMenu.module.css';
 import { ColorSchemeToggle } from '../ColorSchemeToggle/ColorSchemeToggle';
 import { Link } from 'react-router-dom';
+import { useAuth } from 'react-oidc-context';
 
 const mockdata = [
   {
@@ -82,6 +83,14 @@ export function HeaderMegaMenu() {
   const [linksOpened, { toggle: toggleLinks }] = useDisclosure(false);
   const [userMenuOpened, setUserMenuOpened] = useState(false);
   const theme = useMantineTheme();
+  const auth = useAuth();
+  
+  const signOutRedirect = () => {
+    const clientId = "5pk6av8r8nctg7cphchlt7pe2s";
+    const logoutUri = "<logout uri>";
+    const cognitoDomain = "https://<user pool domain>";
+    window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
+  };
 
   const links = mockdata.map((item) => (
     <UnstyledButton className={classes.subLink} key={item.title}>
@@ -187,27 +196,47 @@ export function HeaderMegaMenu() {
               </Menu.Target>
               <Menu.Dropdown>
                 <Menu.Item
-                  leftSection={<IconHeart size={16} color={theme.colors.red[6]} stroke={1.5} />}
+                  leftSection={<IconHeart 
+                    size={16} 
+                    color={theme.colors.red[6]} 
+                    stroke={1.5} />}
                 >
                   Followed schematics
                 </Menu.Item>                
                 <Menu.Item
-                  leftSection={<IconUser size={16} color={theme.colors.blue[6]} stroke={1.5} />}
+                  leftSection={<IconUser 
+                    size={16} 
+                    color={theme.colors.blue[6]} 
+                    stroke={1.5} />}
                 >
                   Followed seraphs
                 </Menu.Item>
                 <Menu.Item
-                  leftSection={<IconMessage size={16} color={theme.colors.yellow[6]} stroke={1.5} />}
+                  leftSection={<IconMessage 
+                    size={16} 
+                    color={theme.colors.yellow[6]} 
+                    stroke={1.5} />}
                 >
                   Your comments
                 </Menu.Item>
 
                 <Menu.Label>Settings</Menu.Label>
-                <Menu.Item leftSection={<IconSettings size={16} stroke={1.5} />}>
+                <Menu.Item 
+                  leftSection={<IconSettings 
+                    size={16} 
+                    stroke={1.5} />}
+                >
                   Account settings
                 </Menu.Item>
-                <Menu.Item leftSection={<IconLogout size={16} stroke={1.5} />}>Logout</Menu.Item>
-
+                <Menu.Item 
+                  leftSection={<IconLogout 
+                    size={16} 
+                    stroke={1.5} 
+                    onClick={() => signOutRedirect()} />}
+                >
+                  Logout
+                </Menu.Item>
+                
                 <Menu.Divider />
 
                 <Menu.Label>Danger zone</Menu.Label>
