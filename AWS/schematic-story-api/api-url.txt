@@ -1,0 +1,1 @@
+﻿https://eehmowhdrl.execute-api.us-east-2.amazonaws.com/Prod/

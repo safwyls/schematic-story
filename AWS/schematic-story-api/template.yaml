@@ -1,0 +1,413 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Schematic Story Complete API
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs18.x
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref DynamoDBTableName
+        S3_BUCKET_NAME: !Ref S3BucketName
+        ENVIRONMENT: !Ref Environment
+        AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+    Tracing: Active
+
+Parameters:
+  DynamoDBTableName:
+    Type: String
+    Default: SchematicStoryTable
+    Description: Name of the DynamoDB table
+  
+  S3BucketName:
+    Type: String
+    Default: schematic-story-files
+    Description: Name of the S3 bucket for files
+  
+  Environment:
+    Type: String
+    Default: development
+    AllowedValues:
+      - development
+      - staging
+      - production
+    Description: Environment name
+
+Resources:
+  # ==========================================
+  # USER ENDPOINTS
+  # ==========================================
+  
+  GetUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/userHandlers.getUser
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        GetUser:
+          Type: Api
+          Properties:
+            Path: /users/{userId}
+            Method: GET
+
+  CreateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/userHandlers.createUser
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        CreateUser:
+          Type: Api
+          Properties:
+            Path: /users
+            Method: POST
+
+  GetUserSchematicsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/userHandlers.getUserSchematics
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        GetUserSchematics:
+          Type: Api
+          Properties:
+            Path: /users/{userId}/schematics
+            Method: GET
+
+  # ==========================================
+  # SCHEMATIC ENDPOINTS
+  # ==========================================
+
+  GetSchematicFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/schematicHandlers.getSchematic
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        GetSchematic:
+          Type: Api
+          Properties:
+            Path: /schematics/{schematicId}
+            Method: GET
+
+  CreateSchematicFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/schematicHandlers.createSchematic
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        CreateSchematic:
+          Type: Api
+          Properties:
+            Path: /schematics
+            Method: POST
+
+  UpdateSchematicFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/schematicHandlers.updateSchematic
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        UpdateSchematic:
+          Type: Api
+          Properties:
+            Path: /schematics/{schematicId}
+            Method: PUT
+
+  DeleteSchematicFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/schematicHandlers.deleteSchematic
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        DeleteSchematic:
+          Type: Api
+          Properties:
+            Path: /schematics/{schematicId}
+            Method: DELETE
+
+  GetLatestSchematicsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/schematicHandlers.getLatestSchematics
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        GetLatestSchematics:
+          Type: Api
+          Properties:
+            Path: /schematics/feed/latest
+            Method: GET
+
+  GetSchematicsByTagFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/schematicHandlers.getSchematicsByTag
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        GetSchematicsByTag:
+          Type: Api
+          Properties:
+            Path: /schematics/tag/{tagName}
+            Method: GET
+
+  GetSchematicDownloadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/schematicHandlers.getSchematicDownloadUrl
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+        - S3ReadPolicy:
+            BucketName: !Ref S3BucketName
+      Events:
+        GetDownloadUrl:
+          Type: Api
+          Properties:
+            Path: /schematics/{schematicId}/download-url
+            Method: GET
+
+  GetSchematicUploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/schematicHandlers.getSchematicUploadUrl
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref S3BucketName
+      Events:
+        GetUploadUrl:
+          Type: Api
+          Properties:
+            Path: /schematics/upload-url
+            Method: POST
+
+  # ==========================================
+  # COMMENT ENDPOINTS
+  # ==========================================
+
+  GetCommentsBySchematicFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/commentHandlers.getCommentsBySchematic
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        GetComments:
+          Type: Api
+          Properties:
+            Path: /schematics/{schematicId}/comments
+            Method: GET
+
+  CreateCommentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/commentHandlers.createComment
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        CreateComment:
+          Type: Api
+          Properties:
+            Path: /schematics/{schematicId}/comments
+            Method: POST
+
+  UpdateCommentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/commentHandlers.updateComment
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        UpdateComment:
+          Type: Api
+          Properties:
+            Path: /comments/{commentId}
+            Method: PUT
+
+  DeleteCommentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/commentHandlers.deleteComment
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        DeleteComment:
+          Type: Api
+          Properties:
+            Path: /comments/{commentId}
+            Method: DELETE
+
+  # ==========================================
+  # FOLLOW ENDPOINTS
+  # ==========================================
+
+  FollowUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/followHandlers.followUser
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        FollowUser:
+          Type: Api
+          Properties:
+            Path: /users/{userId}/follow
+            Method: POST
+
+  UnfollowUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/followHandlers.unfollowUser
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        UnfollowUser:
+          Type: Api
+          Properties:
+            Path: /users/{userId}/follow
+            Method: DELETE
+
+  GetUserFollowersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/followHandlers.getUserFollowers
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        GetFollowers:
+          Type: Api
+          Properties:
+            Path: /users/{userId}/followers
+            Method: GET
+
+  GetUserFollowingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/followHandlers.getUserFollowing
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        GetFollowing:
+          Type: Api
+          Properties:
+            Path: /users/{userId}/following
+            Method: GET
+
+  # ==========================================
+  # NOTIFICATION ENDPOINTS
+  # ==========================================
+
+  GetUserNotificationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/notificationHandlers.getUserNotifications
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        GetNotifications:
+          Type: Api
+          Properties:
+            Path: /users/{userId}/notifications
+            Method: GET
+
+  MarkNotificationReadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/notificationHandlers.markNotificationRead
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        MarkRead:
+          Type: Api
+          Properties:
+            Path: /notifications/{notificationId}/read
+            Method: PUT
+
+  MarkAllNotificationsReadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/notificationHandlers.markAllNotificationsRead
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        MarkAllRead:
+          Type: Api
+          Properties:
+            Path: /users/{userId}/notifications/read-all
+            Method: PUT
+
+  # ==========================================
+  # HEALTH CHECK
+  # ==========================================
+
+  HealthCheckFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/healthHandler.health
+      Events:
+        HealthCheck:
+          Type: Api
+          Properties:
+            Path: /health
+            Method: GET
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/
+  
+  S3BucketName:
+    Description: S3 bucket for schematic files
+    Value: !Ref S3BucketName
