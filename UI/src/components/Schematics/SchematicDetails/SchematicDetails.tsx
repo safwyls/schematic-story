@@ -1,12 +1,36 @@
 import { CardsCarousel } from "@/components/Carousel/CardsCarousel";
-import { Card, Container, Grid, Title, Text, Group, Button, Stack, ActionIcon, Badge, useMantineTheme, useMantineColorScheme, useComputedColorScheme } from "@mantine/core";
+import { Card, Container, Grid, Title, Group, Button, Stack, ActionIcon, Badge, useComputedColorScheme, Paper } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { IconDownload, IconEdit, IconHeart, IconShare } from '@tabler/icons-react';
 import { labeledTextProps, LabeledText } from "../../Common/LabeledText";
 import { BadgeLink } from "@/components/Common/BadgeLink";
 import dayjs from 'dayjs';
-import { BlockNoteView } from "@blocknote/mantine";
+import { BlockNoteView, darkDefaultTheme, lightDefaultTheme, Theme } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
+import "@blocknote/core/fonts/inter.css";
+import "@blocknote/mantine/style.css";
+
+const lightBlueTheme = {
+  colors: lightDefaultTheme.colors,
+  borderRadius: 4,
+  fontFamily: "Helvetica Neue, sans-serif",
+} satisfies Theme;
+
+const darkBlueTheme = {
+  colors: {
+    ...darkDefaultTheme,
+    editor: {
+      text: "#ffffff",
+      background: "#284871"
+    },
+    highlights: darkDefaultTheme.colors!.highlights,
+  },
+} satisfies Theme;
+
+const blueTheme = {
+  light: lightBlueTheme,
+  dark: darkBlueTheme,
+};
 
 interface SchematicProps {
     id: string | undefined
@@ -159,7 +183,10 @@ export function SchematicDetails(props: SchematicProps) {
                     </Group>
                 </Grid.Col>
                 <Grid.Col span={12}>
-                    <BlockNoteView editor={editor} editable={editMode} theme={computedColorScheme === 'dark' ? 'dark' : 'light'}/>
+                    <Paper p={0}>
+                        <BlockNoteView editor={editor} editable={editMode} 
+                            theme={computedColorScheme === 'dark' ? darkBlueTheme : lightBlueTheme}/>
+                    </Paper>
                 </Grid.Col>
                 <Grid.Col span={12}>
                     More from {details.author}

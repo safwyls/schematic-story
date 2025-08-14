@@ -403,6 +403,83 @@ Resources:
             Path: /health
             Method: GET
 
+  # ==========================================
+  # COGNITO
+  # ==========================================
+  CognitoPostConfirmationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/cognitoTriggers.postConfirmation
+      Runtime: nodejs18.x
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref DynamoDBTableName
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+
+  CognitoPreSignUpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/cognitoTriggers.preSignUp
+      Runtime: nodejs18.x
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref DynamoDBTableName
+          TRUSTED_DOMAINS: ""  # Comma-separated list of auto-verify domains
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDBTableName
+
+  CognitoCustomMessageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/cognitoTriggers.customMessage
+      Runtime: nodejs18.x
+
+  CognitoPreTokenGenerationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: handlers/cognitoTriggers.preTokenGeneration
+      Runtime: nodejs18.x
+
+  # Permissions for Cognito to invoke the Lambda functions
+  CognitoPostConfirmationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CognitoPostConfirmationFunction.Arn
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+      SourceArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
+
+  CognitoPreSignUpPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CognitoPreSignUpFunction.Arn
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+      SourceArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
+
+  CognitoCustomMessagePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CognitoCustomMessageFunction.Arn
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+      SourceArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
+
+  CognitoPreTokenGenerationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt CognitoPreTokenGenerationFunction.Arn
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+      SourceArn: !Sub arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*
+
 Outputs:
   ApiUrl:
     Description: API Gateway endpoint URL
@@ -411,3 +488,15 @@ Outputs:
   S3BucketName:
     Description: S3 bucket for schematic files
     Value: !Ref S3BucketName
+
+  CognitoPostConfirmationFunctionArn:
+    Description: ARN of the Post Confirmation Lambda function
+    Value: !GetAtt CognitoPostConfirmationFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-PostConfirmationArn
+
+  CognitoPreSignUpFunctionArn:
+    Description: ARN of the Pre Sign-up Lambda function
+    Value: !GetAtt CognitoPreSignUpFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-PreSignUpArn

@@ -36,6 +36,7 @@ export const mantineTheme: MantineThemeOverride = createTheme({
     "3xl": rem("32px"),
   },
   primaryColor: "blue",
+  primaryShade: { light: 5, dark: 8},
   components: {
     /** Put your mantine component override here */
     Container: Container.extend({
@@ -75,4 +76,18 @@ export const mantineTheme: MantineThemeOverride = createTheme({
   other: {
     style: "mantine",
   },
+  colors: {
+    dark: [
+      '#f0f4fa', // 0
+      '#d9e4f2', // 1
+      '#bbcfe7', // 2
+      '#8eaed7', // 3
+      '#5989c5', // 4
+      '#38659f', // 5
+      '#284871', // 6
+      '#1b304b', // 7
+      '#0f1b2a', // 8  <-- your anchor
+      '#080e17', // 9
+    ]
+  }
 });
