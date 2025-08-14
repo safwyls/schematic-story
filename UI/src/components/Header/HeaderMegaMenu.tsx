@@ -14,7 +14,8 @@ import {
   IconTrendingUp,
   IconTag,
   IconCirclePlus,
-  IconUser
+  IconUser,
+  IconLogin
 } from '@tabler/icons-react';
 import cx from 'clsx';
 import {
@@ -52,7 +53,7 @@ const mockdata = [
   },
   {
     icon: IconCirclePlus,
-    title: 'Newest',
+    title: 'Latest',
     description: 'Take a look at the latest additions',
   },
   {
@@ -86,7 +87,7 @@ export function HeaderMegaMenu() {
   const auth = useAuth();
   
   const signOutRedirect = () => {
-    const clientId = "5pk6av8r8nctg7cphchlt7pe2s";
+    const clientId = "2nq61758ro0hf07ur5hfik0o24";
     const logoutUri = "<logout uri>";
     const cognitoDomain = "https://<user pool domain>";
     window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
@@ -196,52 +197,38 @@ export function HeaderMegaMenu() {
               </Menu.Target>
               <Menu.Dropdown>
                 <Menu.Item
-                  leftSection={<IconHeart 
-                    size={16} 
-                    color={theme.colors.red[6]} 
-                    stroke={1.5} />}
+                  leftSection={<IconHeart size={16} color={theme.colors.red[6]} stroke={1.5} />}
                 >
                   Followed schematics
                 </Menu.Item>                
                 <Menu.Item
-                  leftSection={<IconUser 
-                    size={16} 
-                    color={theme.colors.blue[6]} 
-                    stroke={1.5} />}
+                  leftSection={<IconUser size={16} color={theme.colors.blue[6]} stroke={1.5} />}
                 >
                   Followed seraphs
                 </Menu.Item>
                 <Menu.Item
-                  leftSection={<IconMessage 
-                    size={16} 
-                    color={theme.colors.yellow[6]} 
-                    stroke={1.5} />}
+                  leftSection={<IconMessage size={16} color={theme.colors.yellow[6]} stroke={1.5} />}
                 >
                   Your comments
                 </Menu.Item>
 
                 <Menu.Label>Settings</Menu.Label>
                 <Menu.Item 
-                  leftSection={<IconSettings 
-                    size={16} 
-                    stroke={1.5} />}
+                  leftSection={<IconSettings size={16} stroke={1.5} />}
                 >
                   Account settings
                 </Menu.Item>
                 <Menu.Item 
-                  leftSection={<IconLogout 
-                    size={16} 
-                    stroke={1.5} 
-                    onClick={() => signOutRedirect()} />}
+                  leftSection={<IconLogin size={16} stroke={1.5} />}
+                  onClick={() => auth.signinRedirect()}
+                >
+                  Login
+                </Menu.Item>
+                <Menu.Item 
+                  leftSection={<IconLogout size={16} stroke={1.5} />}
+                  onClick={signOutRedirect} 
                 >
                   Logout
-                </Menu.Item>
-                
-                <Menu.Divider />
-
-                <Menu.Label>Danger zone</Menu.Label>
-                <Menu.Item color="red" leftSection={<IconTrash size={16} stroke={1.5} />}>
-                  Delete account
                 </Menu.Item>
               </Menu.Dropdown>
             </Menu>
