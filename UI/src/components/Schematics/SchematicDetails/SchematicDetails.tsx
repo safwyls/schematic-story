@@ -10,6 +10,7 @@ import { useCreateBlockNote } from "@blocknote/react";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
 
+
 const lightBlueTheme = {
   colors: lightDefaultTheme.colors,
   borderRadius: 4,

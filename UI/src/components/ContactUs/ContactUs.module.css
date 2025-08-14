@@ -1,22 +1,21 @@
 .wrapper {
-  min-height: 400px;
+  min-height: 400px ;
   background-image: linear-gradient(
     -60deg,
     var(--mantine-color-blue-4) 0%,
     var(--mantine-color-blue-7) 100%
   );
   border-radius: var(--mantine-radius-md);
-  padding: calc(var(--mantine-spacing-xl) * 2.5);
+  padding: calc(var(--mantine-spacing-xl) * 2.5) !important;
 
   @media (max-width: $mantine-breakpoint-sm) {
-    padding: calc(var(--mantine-spacing-xl) * 1.5);
+    padding: calc(var(--mantine-spacing-xl) * 1.5) !important;
   }
 }
 
 .title {
   font-family: Outfit, var(--mantine-font-family);
   color: var(--mantine-color-white);
-  font-weight: 500;
   line-height: 1;
 }
 
