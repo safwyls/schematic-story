@@ -7,6 +7,7 @@ import { BadgeLink } from "@/components/Common/BadgeLink";
 import dayjs from 'dayjs';
 import DescriptionBlockNote from "@/components/Blocknote/DescriptionBlockNote";
 import { Details, SchematicProps } from "@/types/common";
+import { useParams } from "react-router-dom";
 
 function SectionText(props: labeledTextProps) {
     return (        
@@ -16,7 +17,8 @@ function SectionText(props: labeledTextProps) {
     )
 }
 
-export function SchematicDetailsPage(props: SchematicProps) {
+export function SchematicDetailsPage() {
+    const { id } = useParams<{ id: string }>();
     const [editMode, setEditMode] = useState<boolean>(false);
     const [editable, setEditable] = useState<boolean>(false);
     const [details, setDetails] = useState<Details>({
@@ -63,7 +65,7 @@ export function SchematicDetailsPage(props: SchematicProps) {
 
     useEffect(() => {
         // Get schematic details by id
-    }, [props.id])
+    }, [id])
 
     useEffect(() => {
         // logic for who to show edit button to goes here
