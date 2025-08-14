@@ -48,9 +48,8 @@
   z-index: 0;
   position: absolute;
   color: var(--mantine-color-white);
-  font-weight: 500;
   opacity: 0.1;
-  font-size: 320px;
+  font-size: 320px !important;
   line-height: 1;
   top: 10px;
   left: 45px;
