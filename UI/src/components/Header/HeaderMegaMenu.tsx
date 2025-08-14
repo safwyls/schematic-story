@@ -100,6 +100,10 @@ export function HeaderMegaMenu() {
     window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
   };
 
+  const signInRedirect = () => {
+    auth.signinRedirect();
+  }
+
   const navigateTo = (path: string) => {
     closeDrawer();
     navigate(path);
@@ -232,18 +236,23 @@ export function HeaderMegaMenu() {
                 >
                   Account settings
                 </Menu.Item>
-                <Menu.Item 
-                  leftSection={<IconLogin size={16} stroke={1.5} />}
-                  onClick={() => auth.signinRedirect()}
-                >
-                  Login
-                </Menu.Item>
-                <Menu.Item 
-                  leftSection={<IconLogout size={16} stroke={1.5} />}
-                  onClick={signOutRedirect} 
-                >
-                  Logout
-                </Menu.Item>
+                
+                {auth.isAuthenticated 
+                  ?
+                    <Menu.Item 
+                      leftSection={<IconLogout size={16} stroke={1.5} />}
+                      onClick={signOutRedirect} 
+                    >
+                      Logout
+                    </Menu.Item>
+                  :                  
+                    <Menu.Item 
+                      leftSection={<IconLogin size={16} stroke={1.5} />}
+                      onClick={signInRedirect}
+                    >
+                      Login
+                    </Menu.Item>
+                }
               </Menu.Dropdown>
             </Menu>
           </Group>
@@ -312,12 +321,21 @@ export function HeaderMegaMenu() {
               label="Account settings"
               href="/account"
               leftSection={<IconSettings size={16} stroke={1.5} />}
-            />              
-            <NavLink 
-              label="Logout"
-              onClick={signOutRedirect}
-              leftSection={<IconLogout size={16} stroke={1.5} />}
             />
+            {auth.isAuthenticated 
+              ? 
+                <NavLink 
+                  label="Logout"
+                  onClick={signOutRedirect}
+                  leftSection={<IconLogout size={16} stroke={1.5} />}
+                />
+              :
+                <NavLink 
+                  label="Login"
+                  onClick={signInRedirect}
+                  leftSection={<IconLogin size={16} stroke={1.5} />}
+                />
+            }
             <ColorSchemeToggle mobile/>
           </Stack>
         </ScrollArea>
