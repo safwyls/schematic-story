@@ -17,13 +17,22 @@
   font-weight: 500;
   font-size: var(--mantine-font-size-sm);
 
-  @media (max-width: $mantine-breakpoint-sm) {
+  @media (max-width: $mantine-breakpoint-md) {
     height: 42px;
-    width: 100%;
+    width: 100%;    
+    padding: var(--mantine-spacing-sm);
   }
 
   @mixin hover {
     background-color: light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-7));
+  }
+}
+
+.logo {
+  height: 60px;
+
+  @media (max-width: $mantine-breakpoint-md) {
+    height: 50px;
   }
 }
 

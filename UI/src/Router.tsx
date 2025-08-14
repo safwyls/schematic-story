@@ -7,6 +7,8 @@ import { useEffect } from 'react';
 import { Background } from './components/Background/Background';
 import { HeaderMegaMenu } from './components/Header/HeaderMegaMenu';
 import { ScrollToTop } from './components/Common/ScrollToTop';
+import { AccountPage } from './pages/Account.page';
+import { UploadPage } from './pages/Upload.page';
 
 function ScrollToHashElement() {
   const location = useLocation();
@@ -42,6 +44,8 @@ export const router = createBrowserRouter([
       { path: '/', element: <HomePage /> },
       { path: '/schematics', element: <SchematicsPage /> },
       { path: '/schematic/:id', element: <SchematicDetailsPage /> },
+      { path: '/account', element: <AccountPage />},      
+      { path: '/upload', element: <UploadPage />},
       { path: '*', element: <NotFoundPage /> }
     ]
   }
