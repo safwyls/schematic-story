@@ -7,20 +7,22 @@ import { useState } from "react";
 import { IconKey, IconTrash } from "@tabler/icons-react";
 import { useDisclosure } from '@mantine/hooks';
 import classes from './Account.module.css';
+import { useAuthStore } from "@/store/AuthStore";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
 export function AccountPage() {
+    const { user } = useAuthStore();
     const [visible, { toggle }] = useDisclosure(false);
     const [delOpened, { open: delOpen, close: delClose }] = useDisclosure(false);
     const [pwOpened, { open: pwOpen, close: pwClose }] = useDisclosure(false);
     const form = useForm({
         mode: 'uncontrolled',
         initialValues: {
-            userName: 'Jonas Falx',
-            email: 'jonas.falx@example.com',
-            tz: dayjs.tz.guess(),
+            userName: user.username,
+            email: user.email,
+            tz: user.timezone == '' || null ? dayjs.tz.guess() : user.timezone,
             avatarUrl: 'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/avatars/avatar-10.png',
         },
         validate: {

@@ -1,9 +1,10 @@
 import dayjs from "dayjs";
 
-export interface User {
-    userName: string,
+export interface AppUser {
+    id: string,
+    username: string,
     email: string,
-    timezone: dayjs.DayjsTimezone,
+    timezone: string,
     avatarUrl: string
 }
 
