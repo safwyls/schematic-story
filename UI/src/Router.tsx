@@ -1,4 +1,4 @@
-import { createBrowserRouter, Outlet, RouterProvider, useLocation } from 'react-router-dom';
+import { createBrowserRouter, Outlet, useLocation } from 'react-router-dom';
 import { HomePage } from './pages/Home.page';
 import { NotFoundPage } from './pages/NotFound.page'
 import { SchematicsPage } from './pages/Schematics.page';

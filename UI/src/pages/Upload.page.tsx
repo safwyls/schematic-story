@@ -1,5 +1,5 @@
 import DescriptionBlockNote from "@/components/Blocknote/DescriptionBlockNote";
-import { User, Vec3d } from "@/types/common";
+import { AppUser, Vec3d } from "@/types/common";
 import { BlockNoteView } from "@blocknote/mantine";
 import { Badge, Button, Card, Container, FileInput, Grid, GridCol, Group, Paper, Stack, TagsInput, TextInput, Title } from "@mantine/core";
 import { useForm } from "@mantine/form";

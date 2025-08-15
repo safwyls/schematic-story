@@ -44,6 +44,7 @@ import { ColorSchemeToggle } from '../ColorSchemeToggle/ColorSchemeToggle';
 import { Link } from 'react-router-dom';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/store/AuthStore';
 
 const mockdata = [
   {
@@ -78,13 +79,8 @@ const mockdata = [
   },
 ];
 
-const user = {
-  name: 'Jonas Falx',
-  email: 'jonas.falx@vintagestory.at',
-  image: 'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/avatars/avatar-10.png',
-};
-
 export function HeaderMegaMenu() {
+  const { user } = useAuthStore();
   const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false);
   const [linksOpened, { toggle: toggleLinks }] = useDisclosure(false);
   const [userMenuOpened, { toggle: toggleUserMenu }] = useDisclosure(false);
@@ -93,15 +89,22 @@ export function HeaderMegaMenu() {
   const auth = useAuth();
   const navigate = useNavigate();
   
-  const signOutRedirect = () => {
+  const signOutRedirect = async () => {    
+    // Remove the user from local session
+    await auth.removeUser();    
     const clientId = "2nq61758ro0hf07ur5hfik0o24";
-    const logoutUri = "<logout uri>";
-    const cognitoDomain = "https://<user pool domain>";
+    const logoutUri = import.meta.env.VITE_APP_REDIR;
+    const cognitoDomain = "https://auth.schematicstory.com";
     window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
   };
 
   const signInRedirect = () => {
     auth.signinRedirect();
+  }
+
+  const test = () => {
+    console.log(auth.user?.profile["cognito:username"]);
+    console.log(auth.user?.profile.sub);
   }
 
   const navigateTo = (path: string) => {
@@ -192,69 +195,76 @@ export function HeaderMegaMenu() {
 
           <Group visibleFrom="md">
             <ColorSchemeToggle />
-            <Menu
-              width={260}
-              position="bottom-end"
-              transitionProps={{ transition: 'pop-top-right' }}
-              trigger="click"
-              withinPortal
-            >
-              <Menu.Target>
-                <UnstyledButton
-                  className={cx(classes.user, { [classes.userActive]: userMenuOpened })}
+            
+            {auth.isAuthenticated 
+              ?
+                <Menu
+                  width={260}
+                  position="bottom-end"
+                  transitionProps={{ transition: 'pop-top-right' }}
+                  trigger="click"
+                  withinPortal
                 >
-                  <Group gap={7}>
-                    <Avatar src={user.image} alt={user.name} radius="xl" size={20} />
-                    <Text fw={500} size="sm" lh={1} mr={3}>
-                      {user.name}
-                    </Text>
-                    <IconChevronDown size={12} stroke={1.5} />
-                  </Group>
-                </UnstyledButton>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Item
-                  leftSection={<IconHeart size={16} color={theme.colors.red[6]} stroke={1.5} />}
-                >
-                  Followed schematics
-                </Menu.Item>                
-                <Menu.Item
-                  leftSection={<IconUser size={16} color={theme.colors.blue[6]} stroke={1.5} />}
-                >
-                  Followed seraphs
-                </Menu.Item>
-                <Menu.Item
-                  leftSection={<IconMessage size={16} color={theme.colors.yellow[6]} stroke={1.5} />}
-                >
-                  Your comments
-                </Menu.Item>
+                  <Menu.Target>
+                    <UnstyledButton
+                      className={cx(classes.user, { [classes.userActive]: userMenuOpened })}
+                    >
+                      <Group gap={7}>
+                        <Avatar src={user.avatarUrl} alt={user.username} radius="xl" size={20} />
+                        <Text fw={500} size="sm" lh={1} mr={3}>
+                          {user.username}
+                        </Text>
+                        <IconChevronDown size={12} stroke={1.5} />
+                      </Group>
+                    </UnstyledButton>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Item
+                      onClick={test}
+                      leftSection={<IconHeart size={16} color={theme.colors.red[6]} stroke={1.5} />}
+                    >
+                      Followed schematics
+                    </Menu.Item>                
+                    <Menu.Item
+                      leftSection={<IconUser size={16} color={theme.colors.blue[6]} stroke={1.5} />}
+                    >
+                      Followed seraphs
+                    </Menu.Item>
+                    <Menu.Item
+                      leftSection={<IconMessage size={16} color={theme.colors.yellow[6]} stroke={1.5} />}
+                    >
+                      Your comments
+                    </Menu.Item>
 
-                <Menu.Label>Settings</Menu.Label>
-                <Menu.Item 
-                  leftSection={<IconSettings size={16} stroke={1.5} />}
-                  onClick={() => navigate('/account')}
-                >
-                  Account settings
-                </Menu.Item>
-                
-                {auth.isAuthenticated 
-                  ?
+                    <Menu.Label>Settings</Menu.Label>
+                    <Menu.Item 
+                      leftSection={<IconSettings size={16} stroke={1.5} />}
+                      onClick={() => navigate('/account')}
+                    >
+                      Account settings
+                    </Menu.Item>
+                    
                     <Menu.Item 
                       leftSection={<IconLogout size={16} stroke={1.5} />}
                       onClick={signOutRedirect} 
                     >
                       Logout
                     </Menu.Item>
-                  :                  
-                    <Menu.Item 
-                      leftSection={<IconLogin size={16} stroke={1.5} />}
+                  </Menu.Dropdown>
+                </Menu>
+              :
+                <UnstyledButton 
                       onClick={signInRedirect}
+                      className={cx(classes.user, { [classes.userActive]: userMenuOpened })}
                     >
-                      Login
-                    </Menu.Item>
-                }
-              </Menu.Dropdown>
-            </Menu>
+                      <Group gap={7}>
+                        <Avatar src="src/assets/silhouette.png" alt="Login button" radius="xl" size={20} />                        
+                        <Text fw={500} size="sm" lh={1} mr={3}>
+                          Login
+                        </Text>
+                      </Group>
+                    </UnstyledButton>
+            }
           </Group>
           
           <Burger opened={drawerOpened} onClick={toggleDrawer} hiddenFrom="md" />
@@ -306,34 +316,35 @@ export function HeaderMegaMenu() {
           <Divider my="sm" />
 
           <Stack justify="center">
-            
-            <NavLink
-              label="Followed schematics"
-              href="/schematics/following"
-              leftSection={<IconHeart size={16} color={theme.colors.red[6]} stroke={1.5} />}
-            />
-            <NavLink
-              label="Saved schematics"
-              href="/schematics/saved"
-              leftSection={<IconStar size={16} color={theme.colors.yellow[6]} stroke={1.5} />}
-            />
-            <NavLink 
-              label="Account settings"
-              href="/account"
-              leftSection={<IconSettings size={16} stroke={1.5} />}
-            />
             {auth.isAuthenticated 
               ? 
+              <>
+                <NavLink
+                  label="Followed schematics"
+                  href="/schematics/following"
+                  leftSection={<IconHeart size={16} color={theme.colors.red[6]} stroke={1.5} />}
+                />
+                <NavLink
+                  label="Saved schematics"
+                  href="/schematics/saved"
+                  leftSection={<IconStar size={16} color={theme.colors.yellow[6]} stroke={1.5} />}
+                />
+                <NavLink 
+                  label="Account settings"
+                  href="/account"
+                  leftSection={<IconSettings size={16} stroke={1.5} />}
+                />
                 <NavLink 
                   label="Logout"
                   onClick={signOutRedirect}
                   leftSection={<IconLogout size={16} stroke={1.5} />}
                 />
+              </>
               :
                 <NavLink 
                   label="Login"
                   onClick={signInRedirect}
-                  leftSection={<IconLogin size={16} stroke={1.5} />}
+                  leftSection={<Avatar src="src/assets/silhouette.png" alt="Login button" radius="xl" size={20} />}
                 />
             }
             <ColorSchemeToggle mobile/>
