@@ -7,6 +7,7 @@ import { RouterProvider } from 'react-router-dom';
 import "./App.css";
 import { AuthProvider } from 'react-oidc-context';
 import { useAuthStore } from "@/store/AuthStore";
+import { UserManager } from 'oidc-client-ts';
 
 export default function App() {
   const cognitoAuthConfig = {
@@ -28,6 +29,12 @@ export default function App() {
       end_session_endpoint:   "https://auth.schematicstory.com/logout"
     }
   };
+
+  const userManager = new UserManager(cognitoAuthConfig);
+  userManager.events.addUserLoaded(user => {
+    const authStore = useAuthStore();
+    authStore.setFromOidcUser(user);
+  })
 
   return (
       <AuthProvider {...cognitoAuthConfig}>
