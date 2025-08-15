@@ -4,43 +4,27 @@ import { MantineProvider } from '@mantine/core';
 import { router } from './Router';
 import { mantineTheme } from './theme';
 import { RouterProvider } from 'react-router-dom';
-import "./App.css";
-import { AuthProvider } from 'react-oidc-context';
 import { useAuthStore } from "@/store/AuthStore";
-import { UserManager } from 'oidc-client-ts';
+import { userManager } from './main';
+import { useEffect } from 'react';
+import "./App.css";
 
-export default function App() {
-  const cognitoAuthConfig = {
-    authority: "https://auth.schematicstory.com",
-    client_id: "2nq61758ro0hf07ur5hfik0o24",
-    redirect_uri: import.meta.env.VITE_APP_REDIR,
-    response_type: "code",
-    scope: "phone openid email",
-    onSigninCallback: (_user: any) => {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    },
-    metadata: {
-      issuer: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_b8W4pWgKr",
-      authorization_endpoint: "https://auth.schematicstory.com/oauth2/authorize",
-      token_endpoint:         "https://auth.schematicstory.com/oauth2/token",
-      userinfo_endpoint:      "https://auth.schematicstory.com/oauth2/userInfo",
-      revocation_endpoint:    "https://auth.schematicstory.com/oauth2/revoke",
-      jwks_uri:               "https://auth.schematicstory.com/.well-known/jwks.json",
-      end_session_endpoint:   "https://auth.schematicstory.com/logout"
-    }
-  };
+export default function App() {  
+    const { setFromOidcUser } = useAuthStore();
+    
+    useEffect(() => {
+        const onLoaded = (u: any) => {
+            console.log('User login successful', u);
+            setFromOidcUser(u);
+        };
 
-  const userManager = new UserManager(cognitoAuthConfig);
-  userManager.events.addUserLoaded(user => {
-    const authStore = useAuthStore();
-    authStore.setFromOidcUser(user);
-  })
+        userManager.events.addUserLoaded(onLoaded);
+        return () => userManager.events.removeUserLoaded(onLoaded);
+    }, [setFromOidcUser])
 
-  return (
-      <AuthProvider {...cognitoAuthConfig}>
+    return (
         <MantineProvider theme={mantineTheme}>
-          <RouterProvider router={router}/>
+            <RouterProvider router={router}/>
         </MantineProvider>
-      </AuthProvider>
     );
 }
