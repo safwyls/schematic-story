@@ -16,6 +16,7 @@
     "@aws-sdk/lib-dynamodb": "^3.478.0",
     "@aws-sdk/s3-request-presigner": "^3.864.0",
     "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.2.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

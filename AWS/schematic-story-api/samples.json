@@ -1,0 +1,738 @@
+{
+  "API_ENDPOINTS": {
+    "base_url": "https://your-api.execute-api.us-east-1.amazonaws.com/Prod",
+    "headers_required": {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer YOUR_JWT_TOKEN",
+      "x-user-id": "user-123456789"
+    }
+  },
+
+  "USER_ENDPOINTS": {
+    "1_CREATE_USER": {
+      "endpoint": "POST /users",
+      "description": "Create a new user account",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "username": "john_doe",
+        "email": "john.doe@example.com",
+        "displayName": "John Doe",
+        "bio": "Vintage Story enthusiast and builder. Love creating medieval structures!"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "userId": "user-1234567890-abc123",
+          "username": "john_doe",
+          "email": "john.doe@example.com",
+          "displayName": "John Doe",
+          "bio": "Vintage Story enthusiast and builder. Love creating medieval structures!",
+          "status": "active",
+          "createdAt": "2024-01-15T10:30:00.000Z",
+          "updatedAt": "2024-01-15T10:30:00.000Z"
+        }
+      }
+    },
+
+    "2_GET_USER": {
+      "endpoint": "GET /users/{userId}",
+      "description": "Get user details by ID",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "path_parameters": {
+        "userId": "user-1234567890-abc123"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "userId": "user-1234567890-abc123",
+          "username": "john_doe",
+          "email": "john.doe@example.com",
+          "displayName": "John Doe",
+          "bio": "Vintage Story enthusiast and builder. Love creating medieval structures!",
+          "avatarUrl": "https://cdn.example.com/avatars/john_doe.jpg",
+          "status": "active",
+          "createdAt": "2024-01-15T10:30:00.000Z",
+          "updatedAt": "2024-01-15T10:30:00.000Z"
+        }
+      }
+    },
+
+    "3_GET_USER_SCHEMATICS": {
+      "endpoint": "GET /users/{userId}/schematics",
+      "description": "Get all schematics created by a user",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "path_parameters": {
+        "userId": "user-1234567890-abc123"
+      },
+      "query_parameters": {
+        "limit": 20,
+        "nextToken": "eyJQSyI6IlVTRVIjMTIzIiwiU0siOiJTQ0hFTUFUSUMjMjAyNC0wMS0xNSJ9"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "items": [
+            {
+              "schematicId": "sch-1234567890-xyz789",
+              "title": "Medieval Castle Gate",
+              "description": "A fortified entrance with drawbridge",
+              "authorId": "user-1234567890-abc123",
+              "authorUsername": "john_doe",
+              "tags": ["medieval", "castle", "gate"],
+              "coverImageUrl": "https://cdn.example.com/schematics/castle-gate-thumb.jpg",
+              "createdAt": "2024-01-15T10:30:00.000Z"
+            }
+          ],
+          "count": 1,
+          "pagination": {
+            "nextToken": "eyJQSyI6IlVTRVIjMTIzIiwiU0siOiJTQ0hFTUFUSUMjMjAyNC0wMS0xNiJ9",
+            "hasMore": true
+          }
+        }
+      }
+    }
+  },
+
+  "SCHEMATIC_ENDPOINTS": {
+    "1_CREATE_SCHEMATIC": {
+      "endpoint": "POST /schematics",
+      "description": "Create a new schematic",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-user-id": "user-1234567890-abc123"
+      },
+      "body": {
+        "title": "Medieval Windmill",
+        "description": "A functional windmill with interior grain storage and milling area. Perfect for your farming village!",
+        "tags": ["medieval", "windmill", "farm", "functional"],
+        "fileUrl": "s3://schematic-story-files/schematics/user-123/windmill.schematic",
+        "coverImageUrl": "https://cdn.example.com/images/windmill-preview.jpg",
+        "dimensions": {
+          "width": 15,
+          "height": 25,
+          "depth": 15
+        },
+        "blockCount": 3500
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "schematicId": "sch-1234567890-wind123",
+          "title": "Medieval Windmill",
+          "description": "A functional windmill with interior grain storage and milling area. Perfect for your farming village!",
+          "authorId": "user-1234567890-abc123",
+          "authorUsername": "john_doe",
+          "tags": ["medieval", "windmill", "farm", "functional"],
+          "status": "active",
+          "version": 1,
+          "fileUrl": "s3://schematic-story-files/schematics/user-123/windmill.schematic",
+          "coverImageUrl": "https://cdn.example.com/images/windmill-preview.jpg",
+          "dimensions": {
+            "width": 15,
+            "height": 25,
+            "depth": 15
+          },
+          "blockCount": 3500,
+          "createdAt": "2024-01-15T14:30:00.000Z",
+          "updatedAt": "2024-01-15T14:30:00.000Z"
+        }
+      }
+    },
+
+    "2_GET_SCHEMATIC": {
+      "endpoint": "GET /schematics/{schematicId}",
+      "description": "Get schematic details by ID",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "path_parameters": {
+        "schematicId": "sch-1234567890-wind123"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "schematicId": "sch-1234567890-wind123",
+          "title": "Medieval Windmill",
+          "description": "A functional windmill with interior grain storage and milling area. Perfect for your farming village!",
+          "authorId": "user-1234567890-abc123",
+          "authorUsername": "john_doe",
+          "tags": ["medieval", "windmill", "farm", "functional"],
+          "status": "active",
+          "version": 1,
+          "fileUrl": "s3://schematic-story-files/schematics/user-123/windmill.schematic",
+          "coverImageUrl": "https://cdn.example.com/images/windmill-preview.jpg",
+          "dimensions": {
+            "width": 15,
+            "height": 25,
+            "depth": 15
+          },
+          "blockCount": 3500,
+          "viewCount": 245,
+          "downloadCount": 18,
+          "createdAt": "2024-01-15T14:30:00.000Z",
+          "updatedAt": "2024-01-15T14:30:00.000Z"
+        }
+      }
+    },
+
+    "3_UPDATE_SCHEMATIC": {
+      "endpoint": "PUT /schematics/{schematicId}",
+      "description": "Update schematic details",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-user-id": "user-1234567890-abc123"
+      },
+      "path_parameters": {
+        "schematicId": "sch-1234567890-wind123"
+      },
+      "body": {
+        "title": "Medieval Windmill (Updated)",
+        "description": "A functional windmill with interior grain storage and milling area. Now includes a basement storage area! Perfect for your farming village!",
+        "tags": ["medieval", "windmill", "farm", "functional", "storage"]
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "schematicId": "sch-1234567890-wind123",
+          "title": "Medieval Windmill (Updated)",
+          "description": "A functional windmill with interior grain storage and milling area. Now includes a basement storage area! Perfect for your farming village!",
+          "tags": ["medieval", "windmill", "farm", "functional", "storage"],
+          "updatedAt": "2024-01-15T15:00:00.000Z"
+        }
+      }
+    },
+
+    "4_DELETE_SCHEMATIC": {
+      "endpoint": "DELETE /schematics/{schematicId}",
+      "description": "Soft delete a schematic",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-user-id": "user-1234567890-abc123"
+      },
+      "path_parameters": {
+        "schematicId": "sch-1234567890-wind123"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "message": "Schematic deleted successfully"
+        }
+      }
+    },
+
+    "5_GET_LATEST_SCHEMATICS": {
+      "endpoint": "GET /schematics/feed/latest",
+      "description": "Get latest schematics site-wide",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "query_parameters": {
+        "limit": 20,
+        "nextToken": null
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "items": [
+            {
+              "schematicId": "sch-1234567890-xyz789",
+              "title": "Japanese Pagoda",
+              "description": "5-story pagoda with detailed interior",
+              "authorId": "user-9876543210-def456",
+              "authorUsername": "master_builder",
+              "tags": ["japanese", "pagoda", "temple"],
+              "coverImageUrl": "https://cdn.example.com/images/pagoda-preview.jpg",
+              "createdAt": "2024-01-15T16:00:00.000Z"
+            },
+            {
+              "schematicId": "sch-1234567890-abc456",
+              "title": "Viking Longhouse",
+              "description": "Authentic Norse longhouse with great hall",
+              "authorId": "user-5555555555-ghi789",
+              "authorUsername": "norse_craft",
+              "tags": ["viking", "norse", "house"],
+              "coverImageUrl": "https://cdn.example.com/images/longhouse-preview.jpg",
+              "createdAt": "2024-01-15T15:30:00.000Z"
+            }
+          ],
+          "count": 2,
+          "pagination": {
+            "nextToken": "eyJHU0k0UEsiOiJGRUVEI0xBVEVTVCIsIkdTSTRTSyI6IjIwMjQtMDEtMTVUMTU6MDA6MDAifQ==",
+            "hasMore": true
+          }
+        }
+      }
+    },
+
+    "6_GET_SCHEMATICS_BY_TAG": {
+      "endpoint": "GET /schematics/tag/{tagName}",
+      "description": "Get all schematics with a specific tag",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "path_parameters": {
+        "tagName": "medieval"
+      },
+      "query_parameters": {
+        "limit": 20,
+        "nextToken": null
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "items": [
+            {
+              "schematicId": "sch-1234567890-wind123",
+              "title": "Medieval Windmill",
+              "authorUsername": "john_doe",
+              "tags": ["medieval", "windmill", "farm"],
+              "coverImageUrl": "https://cdn.example.com/images/windmill-preview.jpg"
+            },
+            {
+              "schematicId": "sch-1234567890-castle99",
+              "title": "Medieval Castle Keep",
+              "authorUsername": "castle_builder",
+              "tags": ["medieval", "castle", "fortress"],
+              "coverImageUrl": "https://cdn.example.com/images/castle-preview.jpg"
+            }
+          ],
+          "count": 2,
+          "pagination": {
+            "nextToken": null,
+            "hasMore": false
+          }
+        }
+      }
+    },
+
+    "7_GET_UPLOAD_URL": {
+      "endpoint": "POST /schematics/upload-url",
+      "description": "Get presigned URL for uploading schematic file",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-user-id": "user-1234567890-abc123"
+      },
+      "body": {
+        "filename": "my-awesome-build.schematic",
+        "contentType": "application/octet-stream"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "uploadUrl": "https://schematic-story-files.s3.amazonaws.com/schematics/user-1234567890-abc123/1705325400000-my-awesome-build.schematic?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "s3Key": "schematics/user-1234567890-abc123/1705325400000-my-awesome-build.schematic",
+          "expiresIn": 3600
+        }
+      }
+    },
+
+    "8_GET_DOWNLOAD_URL": {
+      "endpoint": "GET /schematics/{schematicId}/download-url",
+      "description": "Get presigned URL for downloading schematic file",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "path_parameters": {
+        "schematicId": "sch-1234567890-wind123"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "downloadUrl": "https://schematic-story-files.s3.amazonaws.com/schematics/sch-1234567890-wind123/file.schematic?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+          "expiresIn": 3600,
+          "filename": "Medieval_Windmill.schematic"
+        }
+      }
+    }
+  },
+
+  "COMMENT_ENDPOINTS": {
+    "1_CREATE_COMMENT": {
+      "endpoint": "POST /schematics/{schematicId}/comments",
+      "description": "Add a comment to a schematic",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-user-id": "user-9876543210-def456"
+      },
+      "path_parameters": {
+        "schematicId": "sch-1234567890-wind123"
+      },
+      "body": {
+        "content": "Amazing build! I love the attention to detail on the windmill blades. How did you get the rotation mechanism to work so smoothly?"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "commentId": "com-1705325400000-abc123",
+          "schematicId": "sch-1234567890-wind123",
+          "authorId": "user-9876543210-def456",
+          "authorUsername": "master_builder",
+          "content": "Amazing build! I love the attention to detail on the windmill blades. How did you get the rotation mechanism to work so smoothly?",
+          "status": "active",
+          "createdAt": "2024-01-15T16:30:00.000Z",
+          "updatedAt": "2024-01-15T16:30:00.000Z"
+        }
+      }
+    },
+
+    "2_GET_COMMENTS": {
+      "endpoint": "GET /schematics/{schematicId}/comments",
+      "description": "Get all comments for a schematic",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "path_parameters": {
+        "schematicId": "sch-1234567890-wind123"
+      },
+      "query_parameters": {
+        "limit": 20,
+        "nextToken": null
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "items": [
+            {
+              "commentId": "com-1705325400000-abc123",
+              "authorId": "user-9876543210-def456",
+              "authorUsername": "master_builder",
+              "content": "Amazing build! I love the attention to detail on the windmill blades.",
+              "createdAt": "2024-01-15T16:30:00.000Z"
+            },
+            {
+              "commentId": "com-1705325400000-def456",
+              "authorId": "user-5555555555-ghi789",
+              "authorUsername": "norse_craft",
+              "content": "This would fit perfectly in my medieval village!",
+              "createdAt": "2024-01-15T16:35:00.000Z"
+            }
+          ],
+          "count": 2,
+          "pagination": {
+            "nextToken": null,
+            "hasMore": false
+          }
+        }
+      }
+    },
+
+    "3_UPDATE_COMMENT": {
+      "endpoint": "PUT /comments/{commentId}",
+      "description": "Edit your own comment",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-user-id": "user-9876543210-def456"
+      },
+      "path_parameters": {
+        "commentId": "com-1705325400000-abc123"
+      },
+      "body": {
+        "content": "Amazing build! I love the attention to detail on the windmill blades. How did you get the rotation mechanism to work so smoothly? (Edit: Found your tutorial, thanks!)"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "commentId": "com-1705325400000-abc123",
+          "content": "Amazing build! I love the attention to detail on the windmill blades. How did you get the rotation mechanism to work so smoothly? (Edit: Found your tutorial, thanks!)",
+          "status": "edited",
+          "updatedAt": "2024-01-15T16:45:00.000Z"
+        }
+      }
+    },
+
+    "4_DELETE_COMMENT": {
+      "endpoint": "DELETE /comments/{commentId}",
+      "description": "Delete your own comment",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-user-id": "user-9876543210-def456"
+      },
+      "path_parameters": {
+        "commentId": "com-1705325400000-abc123"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "message": "Comment deleted successfully"
+        }
+      }
+    }
+  },
+
+  "FOLLOW_ENDPOINTS": {
+    "1_FOLLOW_USER": {
+      "endpoint": "POST /users/{userId}/follow",
+      "description": "Follow another user",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-user-id": "user-1234567890-abc123"
+      },
+      "path_parameters": {
+        "userId": "user-9876543210-def456"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "message": "Successfully followed user"
+        }
+      }
+    },
+
+    "2_UNFOLLOW_USER": {
+      "endpoint": "DELETE /users/{userId}/follow",
+      "description": "Unfollow a user",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-user-id": "user-1234567890-abc123"
+      },
+      "path_parameters": {
+        "userId": "user-9876543210-def456"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "message": "Successfully unfollowed user"
+        }
+      }
+    },
+
+    "3_GET_FOLLOWERS": {
+      "endpoint": "GET /users/{userId}/followers",
+      "description": "Get list of users who follow this user",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "path_parameters": {
+        "userId": "user-9876543210-def456"
+      },
+      "query_parameters": {
+        "limit": 50,
+        "nextToken": null
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "items": [
+            {
+              "followerId": "user-1234567890-abc123",
+              "username": "john_doe",
+              "displayName": "John Doe",
+              "avatarUrl": "https://cdn.example.com/avatars/john_doe.jpg",
+              "followedAt": "2024-01-15T17:00:00.000Z"
+            },
+            {
+              "followerId": "user-5555555555-ghi789",
+              "username": "norse_craft",
+              "displayName": "Norse Crafter",
+              "avatarUrl": "https://cdn.example.com/avatars/norse_craft.jpg",
+              "followedAt": "2024-01-14T12:00:00.000Z"
+            }
+          ],
+          "count": 2,
+          "pagination": {
+            "nextToken": null,
+            "hasMore": false
+          }
+        }
+      }
+    },
+
+    "4_GET_FOLLOWING": {
+      "endpoint": "GET /users/{userId}/following",
+      "description": "Get list of users that this user follows",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "path_parameters": {
+        "userId": "user-1234567890-abc123"
+      },
+      "query_parameters": {
+        "limit": 50,
+        "nextToken": null
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "items": [
+            {
+              "followeeId": "user-9876543210-def456",
+              "username": "master_builder",
+              "displayName": "Master Builder",
+              "avatarUrl": "https://cdn.example.com/avatars/master_builder.jpg",
+              "followedAt": "2024-01-15T17:00:00.000Z"
+            }
+          ],
+          "count": 1,
+          "pagination": {
+            "nextToken": null,
+            "hasMore": false
+          }
+        }
+      }
+    }
+  },
+
+  "NOTIFICATION_ENDPOINTS": {
+    "1_GET_NOTIFICATIONS": {
+      "endpoint": "GET /users/{userId}/notifications",
+      "description": "Get user's notifications",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-user-id": "user-1234567890-abc123"
+      },
+      "path_parameters": {
+        "userId": "user-1234567890-abc123"
+      },
+      "query_parameters": {
+        "limit": 20,
+        "nextToken": null,
+        "unreadOnly": false
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "items": [
+            {
+              "notificationId": "notif-abc123",
+              "type": "NEW_COMMENT",
+              "message": "master_builder commented on your schematic \"Medieval Windmill\"",
+              "relatedEntityId": "sch-1234567890-wind123",
+              "fromUserId": "user-9876543210-def456",
+              "isRead": false,
+              "createdAt": "2024-01-15T16:30:00.000Z"
+            },
+            {
+              "notificationId": "notif-def456",
+              "type": "NEW_FOLLOWER",
+              "message": "norse_craft started following you",
+              "relatedEntityId": "user-5555555555-ghi789",
+              "fromUserId": "user-5555555555-ghi789",
+              "isRead": false,
+              "createdAt": "2024-01-15T14:00:00.000Z"
+            },
+            {
+              "notificationId": "welcome-user-1234567890-abc123",
+              "type": "WELCOME",
+              "message": "Welcome to Schematic Story, John Doe! Start by uploading your first schematic or exploring what others have created.",
+              "isRead": true,
+              "createdAt": "2024-01-15T10:30:00.000Z"
+            }
+          ],
+          "count": 3,
+          "pagination": {
+            "nextToken": null,
+            "hasMore": false
+          }
+        }
+      }
+    },
+
+    "2_MARK_NOTIFICATION_READ": {
+      "endpoint": "PUT /notifications/{notificationId}/read",
+      "description": "Mark a single notification as read",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-user-id": "user-1234567890-abc123"
+      },
+      "path_parameters": {
+        "notificationId": "notif-abc123"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "message": "Notification marked as read"
+        }
+      }
+    },
+
+    "3_MARK_ALL_NOTIFICATIONS_READ": {
+      "endpoint": "PUT /users/{userId}/notifications/read-all",
+      "description": "Mark all notifications as read",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-user-id": "user-1234567890-abc123"
+      },
+      "path_parameters": {
+        "userId": "user-1234567890-abc123"
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "message": "All notifications marked as read"
+        }
+      }
+    }
+  },
+
+  "HEALTH_CHECK": {
+    "1_HEALTH": {
+      "endpoint": "GET /health",
+      "description": "Check API health status",
+      "headers": {},
+      "response": {
+        "success": true,
+        "data": {
+          "status": "healthy",
+          "timestamp": "2024-01-15T18:00:00.000Z",
+          "environment": "production",
+          "version": "1.0.0"
+        }
+      }
+    }
+  },
+
+  "ERROR_RESPONSES": {
+    "400_BAD_REQUEST": {
+      "statusCode": 400,
+      "body": {
+        "success": false,
+        "message": "Validation failed",
+        "errors": [
+          "Title must be between 3 and 100 characters",
+          "Tags must be an array with maximum 10 items"
+        ]
+      }
+    },
+    "401_UNAUTHORIZED": {
+      "statusCode": 401,
+      "body": {
+        "success": false,
+        "message": "User authentication required"
+      }
+    },
+    "403_FORBIDDEN": {
+      "statusCode": 403,
+      "body": {
+        "success": false,
+        "message": "Not authorized to perform this action"
+      }
+    },
+    "404_NOT_FOUND": {
+      "statusCode": 404,
+      "body": {
+        "success": false,
+        "message": "Resource not found"
+      }
+    },
+    "409_CONFLICT": {
+      "statusCode": 409,
+      "body": {
+        "success": false,
+        "message": "Resource already exists"
+      }
+    },
+    "500_INTERNAL_ERROR": {
+      "statusCode": 500,
+      "body": {
+        "success": false,
+        "message": "Internal server error"
+      }
+    }
+  }
+}
