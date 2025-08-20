@@ -32,6 +32,7 @@ export function SchematicDetailsPage() {
         downloads: 12578,
         description: [],
         tags: ["vanilla", "ruin"],
+        images: [],
         dimensions: {x: 745, y: 95, z: 120},
         fileSize: 125647
     });
@@ -80,7 +81,7 @@ export function SchematicDetailsPage() {
                 </Grid.Col>
                 <Grid.Col span={12}>
                     <Group align="fill" grow gap="sm">
-                        <CardsCarousel />
+                        <CardsCarousel cards={details.images} />
                         <Stack justify="space-between">
                             <Card shadow="xs" radius="md">
                                 <SectionText label="Author">{details.author}</SectionText>

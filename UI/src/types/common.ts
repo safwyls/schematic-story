@@ -23,6 +23,7 @@ export interface Details {
     downloads: number,
     description: any[],
     tags: string[],
+    images: any[]
     dimensions: Vec3d,
     fileSize: number
 }

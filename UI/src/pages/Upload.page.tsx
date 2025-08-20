@@ -1,7 +1,8 @@
 import DescriptionBlockNote from "@/components/Blocknote/DescriptionBlockNote";
+import { CardsCarousel, ImageCard } from "@/components/Carousel/CardsCarousel";
 import { AppUser, Vec3d } from "@/types/common";
 import { BlockNoteView } from "@blocknote/mantine";
-import { Badge, Button, Card, Container, FileInput, Grid, GridCol, Group, Paper, Stack, TagsInput, TextInput, Title } from "@mantine/core";
+import { Badge, Button, Card, Container, FileInput, Grid, GridCol, Group, Image, Paper, Stack, TagsInput, TextInput, Title } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { IconDeviceFloppy } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
@@ -12,6 +13,7 @@ export function UploadPage() {
     const [userList, setUserList] = useState<string[]>([]);
     const [dimensions, setDimensions] = useState<Vec3d>({x: 0, y: 0, z: 0});
     const [json, setJson] = useState<any>();
+    const [imageList, setImageList] = useState<ImageCard[]>([]);
     
     const form = useForm({
         mode: 'uncontrolled',
@@ -39,6 +41,20 @@ export function UploadPage() {
                 setJson(jsonObj);
             }
         };
+    }
+
+    const handleImageUpload = (files: File[]) => {        
+        setImageList([]);
+
+        if (files == null || files.length <= 0) return;
+
+        var temp:ImageCard[] = [];
+        files.forEach(file => {
+            console.log(file);
+            temp.push({ image: URL.createObjectURL(file) });
+        });
+
+        setImageList(temp);
     }
 
     useEffect(() => {
@@ -107,6 +123,15 @@ export function UploadPage() {
                                         <Badge>Z: {dimensions.z}</Badge>
                                         <Badge>Y: {dimensions.y}</Badge>
                                     </Group>
+                                    <FileInput
+                                        clearable
+                                        multiple
+                                        accept="image/png, image/jpeg"
+                                        label="Images"
+                                        description="(.png, .jpeg)"
+                                        onChange={handleImageUpload}
+                                    />                                    
+                                    { imageList.length > 0 ? <CardsCarousel cards={imageList} /> : <></> }
                                     <DescriptionBlockNote label="Description" editMode={true} />
                                 </Stack>
                             </Card>
