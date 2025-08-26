@@ -92,7 +92,7 @@ export function HeaderMegaMenu() {
   const signOutRedirect = async () => {    
     // Remove the user from local session
     await auth.removeUser();    
-    const clientId = "2nq61758ro0hf07ur5hfik0o24";
+    const clientId = "27ickjtjhr7lnn0g28u07kf1m5";
     const logoutUri = import.meta.env.VITE_APP_REDIR;
     const cognitoDomain = "https://auth.schematicstory.com";
     window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
@@ -212,7 +212,7 @@ export function HeaderMegaMenu() {
                       <Group gap={7}>
                         <Avatar src={user.avatarUrl} alt={user.username} radius="xl" size={20} />
                         <Text fw={500} size="sm" lh={1} mr={3}>
-                          {user.username}
+                          {user.preferred_username}
                         </Text>
                         <IconChevronDown size={12} stroke={1.5} />
                       </Group>

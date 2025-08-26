@@ -7,12 +7,12 @@ import { UserManager } from "oidc-client-ts";
 
 export const userManager = new UserManager({
     authority: "https://auth.schematicstory.com",
-    client_id: "2nq61758ro0hf07ur5hfik0o24",
+    client_id: "27ickjtjhr7lnn0g28u07kf1m5",
     redirect_uri: import.meta.env.VITE_APP_REDIR,
     response_type: "code",
-    scope: "phone openid email",
+    scope: "profile openid email",
     metadata: {
-      issuer: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_b8W4pWgKr",
+      issuer: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_1Cg744WJj",
       authorization_endpoint: "https://auth.schematicstory.com/oauth2/authorize",
       token_endpoint:         "https://auth.schematicstory.com/oauth2/token",
       userinfo_endpoint:      "https://auth.schematicstory.com/oauth2/userInfo",
@@ -21,6 +21,14 @@ export const userManager = new UserManager({
       end_session_endpoint:   "https://auth.schematicstory.com/logout"
     }
 });
+
+const cognitoAuthConfig = {
+  authority: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_1Cg744WJj",
+  client_id: "27ickjtjhr7lnn0g28u07kf1m5",
+  redirect_uri: "http://localhost:5173",
+  response_type: "code",
+  scope: "email openid profile",
+};
 
 // Store root on `window` during dev to avoid re-creating on HMR
 const root = (window as any).__root ?? ReactDOM.createRoot(document.getElementById("root")!);

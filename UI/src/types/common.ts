@@ -5,7 +5,8 @@ export interface AppUser {
     username: string,
     email: string,
     timezone: string,
-    avatarUrl: string
+    avatarUrl: string,
+    preferred_username: string
 }
 
 export interface SchematicProps {
