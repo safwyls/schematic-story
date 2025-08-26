@@ -78,17 +78,6 @@ Resources:
             Status: Enabled
             AbortIncompleteMultipartUpload:
               DaysAfterInitiation: 1
-      NotificationConfiguration:
-        LambdaConfigurations:
-          - Event: s3:ObjectCreated:*
-            Function: !GetAtt ProcessSchematicUploadFunction.Arn
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: schematics/
-                  - Name: suffix
-                    Value: .json
 
   ImagesBucket:
     Type: AWS::S3::Bucket
@@ -123,36 +112,62 @@ Resources:
                 StorageClass: STANDARD_IA
               - TransitionInDays: 90
                 StorageClass: GLACIER
-      NotificationConfiguration:
-        LambdaConfigurations:
-          - Event: s3:ObjectCreated:*
-            Function: !GetAtt ProcessImageUploadFunction.Arn
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: avatars/
-          - Event: s3:ObjectCreated:*
-            Function: !GetAtt ProcessImageUploadFunction.Arn
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: covers/
-          - Event: s3:ObjectCreated:*
-            Function: !GetAtt ProcessImageUploadFunction.Arn
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: gallery/
-          - Event: s3:ObjectCreated:*
-            Function: !GetAtt ProcessImageUploadFunction.Arn
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: thumbnails/
+
+#==================================================================================================
+# S3 BUCKET NOTIFICATIONS
+#==================================================================================================
+  SchematicsBucketNotification:
+    Type: AWS::S3::BucketNotification
+    Properties:
+      Bucket: !Ref SchematicsBucket
+      LambdaConfigurations:
+        - Event: s3:ObjectCreated:*
+          Function: !GetAtt ProcessSchematicUploadFunction.Arn
+          Filter:
+            S3Key:
+              Rules:
+                - Name: prefix
+                  Value: schematics/
+                - Name: suffix
+                  Value: .json
+    DependsOn:
+      - ProcessSchematicUploadPermission
+
+  ImagesBucketNotification:
+    Type: AWS::S3::BucketNotification
+    Properties:
+      Bucket: !Ref ImagesBucket
+      LambdaConfigurations:
+        - Event: s3:ObjectCreated:*
+          Function: !GetAtt ProcessImageUploadFunction.Arn
+          Filter:
+            S3Key:
+              Rules:
+                - Name: prefix
+                  Value: avatars/
+        - Event: s3:ObjectCreated:*
+          Function: !GetAtt ProcessImageUploadFunction.Arn
+          Filter:
+            S3Key:
+              Rules:
+                - Name: prefix
+                  Value: covers/
+        - Event: s3:ObjectCreated:*
+          Function: !GetAtt ProcessImageUploadFunction.Arn
+          Filter:
+            S3Key:
+              Rules:
+                - Name: prefix
+                  Value: gallery/
+        - Event: s3:ObjectCreated:*
+          Function: !GetAtt ProcessImageUploadFunction.Arn
+          Filter:
+            S3Key:
+              Rules:
+                - Name: prefix
+                  Value: thumbnails/
+    DependsOn:
+      - ProcessImageUploadPermission
 
 #==================================================================================================
 # CLOUDFRONT DISTRIBUTIONS
