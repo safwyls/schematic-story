@@ -1,9 +1,8 @@
-import { ActionIcon, Autocomplete, Button, Card, Center, Container, Grid, Group, Modal, MultiSelect, Paper, PasswordInput, Space, Stack, TextInput, Title, Typography } from "@mantine/core";
+import { Autocomplete, Button, Card, Center, Container, Grid, Group, Modal, PasswordInput, Space, Stack, TextInput, Title, Typography } from "@mantine/core"; 
 import { useForm } from '@mantine/form';
 import dayjs from 'dayjs';
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
-import { useState } from "react";
 import { IconKey, IconTrash } from "@tabler/icons-react";
 import { useDisclosure } from '@mantine/hooks';
 import classes from './Account.module.css';
@@ -20,7 +19,7 @@ export function AccountPage() {
     const form = useForm({
         mode: 'uncontrolled',
         initialValues: {
-            userName: user.username,
+            userName: user.preferred_username,
             email: user.email,
             tz: user.timezone == '' || null ? dayjs.tz.guess() : user.timezone,
             avatarUrl: 'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/avatars/avatar-10.png',

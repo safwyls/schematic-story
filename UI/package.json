@@ -26,6 +26,7 @@
     "@blocknote/react": "^0.35.0",
     "@mantine/carousel": "^8.2.3",
     "@mantine/core": "8.2.3",
+    "@mantine/dropzone": "^8.2.7",
     "@mantine/form": "^8.2.4",
     "@mantine/hooks": "8.2.3",
     "@redux-devtools/extension": "^3.3.0",

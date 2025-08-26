@@ -16,7 +16,14 @@ export const useAuthStore = create<AuthState>()(
   devtools(
     persist(
       (set) => ({
-        user: { id: '', username: '', email: '', avatarUrl: '', timezone: '' },
+        user: {
+          id: '', 
+          username: '',
+          preferred_username: '',
+          email: '', 
+          avatarUrl: '', 
+          timezone: ''
+        },
         authenticated: false,
 
         setFromOidcUser: (u) => 
@@ -26,6 +33,7 @@ export const useAuthStore = create<AuthState>()(
             const appUser: AppUser = {
               id: (u.profile.sub as string) ?? '',
               username: (u.profile["cognito:username"] as string) ?? (u.profile.email as string) ?? '',
+              preferred_username: (u.profile["preferred_username"] as string) ?? '',
               avatarUrl: '',
               email: (u.profile.email as string) ?? '',
               timezone: (u.profile["timezone"] as string) ?? 'America/Los_Angeles'
@@ -40,4 +48,4 @@ export const useAuthStore = create<AuthState>()(
       }
     ),
   ),
-)
+) 

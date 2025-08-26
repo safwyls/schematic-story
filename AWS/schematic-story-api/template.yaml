@@ -1,6 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Schematic Story Complete API
+Description: Schematic Story Complete API with Image Upload System
+
 Globals:
   Function:
     Timeout: 30
@@ -11,6 +12,10 @@ Globals:
           Ref: DynamoDBTableName
         S3_BUCKET_NAME:
           Ref: S3BucketName
+        S3_IMAGES_BUCKET_NAME:
+          Ref: S3ImageBucketName
+        CLOUDFRONT_IMAGES_DOMAIN:
+          Fn::GetAtt: [ImagesCloudFrontDistribution, DomainName]
         ENVIRONMENT:
           Ref: Environment
         AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
@@ -20,11 +25,15 @@ Parameters:
   DynamoDBTableName:
     Type: String
     Default: SchematicStoryTable
-    Description: Name of the DynamoDB table
+    Description: Name of the existing DynamoDB table
   S3BucketName:
     Type: String
     Default: schematic-story-files
-    Description: Name of the S3 bucket for files
+    Description: Name of the S3 bucket for schematic files
+  S3ImageBucketName:
+    Type: String
+    Default: schematic-story-images
+    Description: Name of the S3 bucket for images
   ApiCustomDomainName:
     Type: String
     Default: api.schematicstory.com
@@ -42,6 +51,195 @@ Parameters:
     Description: Environment name
 
 Resources:
+#==================================================================================================
+# S3 BUCKETS
+#==================================================================================================
+  SchematicsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - 'https://schematicstory.com'
+              - 'http://localhost:5173'
+            AllowedHeaders: ['*']
+            AllowedMethods: [POST, PUT, HEAD]
+            MaxAge: 300
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt ProcessSchematicUploadFunction.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: schematics/
+                  - Name: suffix
+                    Value: .json
+
+  ImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3ImageBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - 'https://schematicstory.com'
+              - 'http://localhost:5173'
+            AllowedHeaders: ['*']
+            AllowedMethods: [POST, PUT, HEAD]
+            MaxAge: 300
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+          # Intelligent Tiering for cost optimization
+          - Id: IntelligentTiering
+            Status: Enabled
+            Filter:
+              Prefix: gallery/
+            Transitions:
+              - TransitionInDays: 30
+                StorageClass: STANDARD_IA
+              - TransitionInDays: 90
+                StorageClass: GLACIER
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt ProcessImageUploadFunction.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: avatars/
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt ProcessImageUploadFunction.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: covers/
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt ProcessImageUploadFunction.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: gallery/
+
+#==================================================================================================
+# CLOUDFRONT DISTRIBUTIONS
+#==================================================================================================
+  SchematicsCloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: "Schematic Story - Schematics CDN"
+        Origins:
+          - DomainName: !GetAtt SchematicsBucket.RegionalDomainName
+            Id: SchematicsS3Origin
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${SchematicsCloudFrontOriginAccessIdentity}"
+        DefaultCacheBehavior:
+          TargetOriginId: SchematicsS3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingDisabled (for JSON files)
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf # CORS-S3Origin
+        PriceClass: PriceClass_100
+
+  ImagesCloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: "Schematic Story - Images CDN"
+        Origins:
+          - DomainName: !GetAtt ImagesBucket.RegionalDomainName
+            Id: ImagesS3Origin
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${ImagesCloudFrontOriginAccessIdentity}"
+        DefaultCacheBehavior:
+          TargetOriginId: ImagesS3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized (good for images)
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf # CORS-S3Origin
+          Compress: true
+        # Custom cache behaviors for different image types
+        CacheBehaviors:
+          # Thumbnails - cache longer
+          - PathPattern: "*_thumb.*"
+            TargetOriginId: ImagesS3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
+            Compress: true
+          # Avatars - cache moderately
+          - PathPattern: "avatars/*"
+            TargetOriginId: ImagesS3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
+            Compress: true
+        PriceClass: PriceClass_100
+
+  # Origin Access Identities
+  SchematicsCloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: "OAI for Schematic Story - Schematics"
+
+  ImagesCloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: "OAI for Schematic Story - Images"
+
+  # S3 Bucket Policies
+  SchematicsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SchematicsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SchematicsCloudFrontOriginAccessIdentity}"
+            Action: s3:GetObject
+            Resource: !Sub "${SchematicsBucket}/*"
+
+  ImagesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ImagesBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${ImagesCloudFrontOriginAccessIdentity}"
+            Action: s3:GetObject
+            Resource: !Sub "${ImagesBucket}/*"
+
 #==================================================================================================
 # REST API
 #==================================================================================================
@@ -104,6 +302,7 @@ Resources:
         PreSignUp: !GetAtt CognitoPreSignUpFunction.Arn
         CustomMessage: !GetAtt CognitoCustomMessageFunction.Arn
         PreTokenGeneration: !GetAtt CognitoPreTokenGenerationFunction.Arn
+
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
@@ -124,7 +323,8 @@ Resources:
         - 'http://localhost:3000'
         - 'https://schematicstory.com'
       SupportedIdentityProviders:
-        - 'COGNITO'  
+        - 'COGNITO'
+
   CognitoUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
     Properties:
@@ -134,12 +334,200 @@ Resources:
         CertificateArn: arn:aws:acm:us-east-1:868651351479:certificate/8052dcf4-d13e-44eb-a5c8-6344c18d72d3
 
 #==================================================================================================
-# USER ENDPOINTS
+# IMAGE UPLOAD FUNCTIONS
+#==================================================================================================
+  GetImageUploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/imageHandlers.getImageUploadUrl
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref S3ImageBucketName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        GetImageUploadUrl:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /images/upload-url
+            Method: POST
+
+  ConfirmImageUploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/imageHandlers.confirmImageUpload
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        ConfirmImageUpload:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /images/{imageId}/confirm-upload
+            Method: POST
+
+  ProcessImageUploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/imageHandlers.processImageUpload
+      Timeout: 60
+      MemorySize: 1024
+      Layers:
+        - arn:aws:lambda:us-east-1:175033217214:layer:graphicsmagick:2
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref S3ImageBucketName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+
+  GetSchematicImagesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/imageHandlers.getSchematicImages
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        GetSchematicImages:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /schematics/{schematicId}/images
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  SetCoverImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/imageHandlers.setCoverImage
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        SetCoverImage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /schematics/{schematicId}/cover-image
+            Method: POST
+
+  DeleteImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/imageHandlers.deleteImage
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref S3ImageBucketName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        DeleteImage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /images/{imageId}
+            Method: DELETE
+
+  GetUserAvatarFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/imageHandlers.getUserAvatar
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        GetUserAvatar:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /users/{userId}/avatar
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  UpdateUserAvatarFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/imageHandlers.updateUserAvatar
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        UpdateUserAvatar:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /users/{userId}/avatar
+            Method: POST
+
+#==================================================================================================
+# ENHANCED SCHEMATIC FUNCTIONS
+#==================================================================================================
+  ProcessSchematicUploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/schematicHandlers.processSchematicUpload
+      Timeout: 30
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref S3BucketName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+
+  ConfirmSchematicUploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: handlers/schematicHandlers.confirmSchematicUpload
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        ConfirmSchematicUpload:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /schematics/{schematicId}/confirm-upload
+            Method: POST
+
+#==================================================================================================
+# S3 PERMISSIONS FOR LAMBDA FUNCTIONS
+#==================================================================================================
+  ProcessSchematicUploadPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ProcessSchematicUploadFunction.Arn
+      Principal: s3.amazonaws.com
+      Action: lambda:InvokeFunction
+      SourceArn: !Sub "${SchematicsBucket}/*"
+
+  ProcessImageUploadPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ProcessImageUploadFunction.Arn
+      Principal: s3.amazonaws.com
+      Action: lambda:InvokeFunction
+      SourceArn: !Sub "${ImagesBucket}/*"
+
+#==================================================================================================
+# EXISTING USER ENDPOINTS
 #==================================================================================================
   GetUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/userHandlers.getUser
       Policies:
       - DynamoDBReadPolicy:
@@ -154,12 +542,11 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
-    Metadata:
-      SamResourceId: GetUserFunction
+
   CreateUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/userHandlers.createUser
       Policies:
       - DynamoDBCrudPolicy:
@@ -172,12 +559,11 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /users
             Method: POST
-    Metadata:
-      SamResourceId: CreateUserFunction
+
   GetUserSchematicsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/userHandlers.getUserSchematics
       Policies:
       - DynamoDBReadPolicy:
@@ -192,16 +578,14 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
-    Metadata:
-      SamResourceId: GetUserSchematicsFunction
-  
+
 #==================================================================================================
-# SCHEMATIC ENDPOINTS
+# EXISTING SCHEMATIC ENDPOINTS
 #==================================================================================================
   GetSchematicFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/schematicHandlers.getSchematic
       Policies:
       - DynamoDBCrudPolicy:
@@ -216,12 +600,11 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
-    Metadata:
-      SamResourceId: GetSchematicFunction
+
   CreateSchematicFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/schematicHandlers.createSchematic
       Policies:
       - DynamoDBCrudPolicy:
@@ -234,12 +617,11 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /schematics
             Method: POST
-    Metadata:
-      SamResourceId: CreateSchematicFunction
+
   UpdateSchematicFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/schematicHandlers.updateSchematic
       Policies:
       - DynamoDBCrudPolicy:
@@ -252,12 +634,11 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /schematics/{schematicId}
             Method: PUT
-    Metadata:
-      SamResourceId: UpdateSchematicFunction
+
   DeleteSchematicFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/schematicHandlers.deleteSchematic
       Policies:
       - DynamoDBCrudPolicy:
@@ -270,12 +651,11 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /schematics/{schematicId}
             Method: DELETE
-    Metadata:
-      SamResourceId: DeleteSchematicFunction
+
   GetLatestSchematicsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/schematicHandlers.getLatestSchematics
       Policies:
       - DynamoDBReadPolicy:
@@ -290,12 +670,11 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
-    Metadata:
-      SamResourceId: GetLatestSchematicsFunction
+
   GetSchematicsByTagFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/schematicHandlers.getSchematicsByTag
       Policies:
       - DynamoDBReadPolicy:
@@ -310,12 +689,11 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
-    Metadata:
-      SamResourceId: GetSchematicsByTagFunction
+
   GetSchematicDownloadUrlFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/schematicHandlers.getSchematicDownloadUrl
       Policies:
       - DynamoDBCrudPolicy:
@@ -333,17 +711,19 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
-    Metadata:
-      SamResourceId: GetSchematicDownloadUrlFunction
+
   GetSchematicUploadUrlFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/schematicHandlers.getSchematicUploadUrl
       Policies:
       - S3WritePolicy:
           BucketName:
             Ref: S3BucketName
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: DynamoDBTableName
       Events:
         GetUploadUrl:
           Type: Api
@@ -351,16 +731,14 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /schematics/upload-url
             Method: POST
-    Metadata:
-      SamResourceId: GetSchematicUploadUrlFunction
-  
+
 #==================================================================================================
-# COMMENT ENDPOINTS
+# EXISTING COMMENT ENDPOINTS
 #==================================================================================================
   GetCommentsBySchematicFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/commentHandlers.getCommentsBySchematic
       Policies:
       - DynamoDBReadPolicy:
@@ -375,12 +753,11 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
-    Metadata:
-      SamResourceId: GetCommentsBySchematicFunction
+
   CreateCommentFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/commentHandlers.createComment
       Policies:
       - DynamoDBCrudPolicy:
@@ -393,12 +770,11 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /schematics/{schematicId}/comments
             Method: POST
-    Metadata:
-      SamResourceId: CreateCommentFunction
+
   UpdateCommentFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/commentHandlers.updateComment
       Policies:
       - DynamoDBCrudPolicy:
@@ -411,12 +787,11 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /comments/{commentId}
             Method: PUT
-    Metadata:
-      SamResourceId: UpdateCommentFunction
+
   DeleteCommentFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/commentHandlers.deleteComment
       Policies:
       - DynamoDBCrudPolicy:
@@ -429,16 +804,14 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /comments/{commentId}
             Method: DELETE
-    Metadata:
-      SamResourceId: DeleteCommentFunction
-  
+
 #==================================================================================================
-# FOLLOW ENDPOINTS
+# EXISTING FOLLOW ENDPOINTS
 #==================================================================================================
   FollowUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/followHandlers.followUser
       Policies:
       - DynamoDBCrudPolicy:
@@ -451,12 +824,11 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /users/{userId}/follow
             Method: POST
-    Metadata:
-      SamResourceId: FollowUserFunction
+
   UnfollowUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/followHandlers.unfollowUser
       Policies:
       - DynamoDBCrudPolicy:
@@ -469,12 +841,11 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /users/{userId}/follow
             Method: DELETE
-    Metadata:
-      SamResourceId: UnfollowUserFunction
+
   GetUserFollowersFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/followHandlers.getUserFollowers
       Policies:
       - DynamoDBReadPolicy:
@@ -487,12 +858,11 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /users/{userId}/followers
             Method: GET
-    Metadata:
-      SamResourceId: GetUserFollowersFunction
+
   GetUserFollowingFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/followHandlers.getUserFollowing
       Policies:
       - DynamoDBReadPolicy:
@@ -505,16 +875,14 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /users/{userId}/following
             Method: GET
-    Metadata:
-      SamResourceId: GetUserFollowingFunction
-  
+
 #==================================================================================================
-# NOTIFICATION ENDPOINTS
+# EXISTING NOTIFICATION ENDPOINTS
 #==================================================================================================
   GetUserNotificationsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/notificationHandlers.getUserNotifications
       Policies:
       - DynamoDBReadPolicy:
@@ -527,12 +895,11 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /users/{userId}/notifications
             Method: GET
-    Metadata:
-      SamResourceId: GetUserNotificationsFunction
+
   MarkNotificationReadFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/notificationHandlers.markNotificationRead
       Policies:
       - DynamoDBCrudPolicy:
@@ -545,12 +912,11 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /notifications/{notificationId}/read
             Method: PUT
-    Metadata:
-      SamResourceId: MarkNotificationReadFunction
+
   MarkAllNotificationsReadFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/notificationHandlers.markAllNotificationsRead
       Policies:
       - DynamoDBCrudPolicy:
@@ -563,16 +929,14 @@ Resources:
             RestApiId: !Ref SchematicStoryApi
             Path: /users/{userId}/notifications/read-all
             Method: PUT
-    Metadata:
-      SamResourceId: MarkAllNotificationsReadFunction
-  
+
 #==================================================================================================
 # HEALTH CHECK
 #==================================================================================================
   HealthCheckFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/healthHandler.health
       Events:
         HealthCheck:
@@ -583,16 +947,14 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
-    Metadata:
-      SamResourceId: HealthCheckFunction
-  
+
 #==================================================================================================
 # COGNITO TRIGGERS
 #==================================================================================================
   CognitoPostConfirmationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/cognitoTriggers.postConfirmation
       Environment:
         Variables:
@@ -602,12 +964,11 @@ Resources:
       - DynamoDBCrudPolicy:
           TableName:
             Ref: DynamoDBTableName
-    Metadata:
-      SamResourceId: CognitoPostConfirmationFunction
+
   CognitoPreSignUpFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/cognitoTriggers.preSignUp
       Environment:
         Variables:
@@ -618,23 +979,20 @@ Resources:
       - DynamoDBReadPolicy:
           TableName:
             Ref: DynamoDBTableName
-    Metadata:
-      SamResourceId: CognitoPreSignUpFunction
+
   CognitoCustomMessageFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/cognitoTriggers.customMessage
-    Metadata:
-      SamResourceId: CognitoCustomMessageFunction
+
   CognitoPreTokenGenerationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://aws-sam-cli-managed-default-samclisourcebucket-9s5x2rc8yc5v/schematic-story-api/b54a271c76143d34becfa4682b15ae66
+      CodeUri: ./
       Handler: handlers/cognitoTriggers.preTokenGeneration
-    Metadata:
-      SamResourceId: CognitoPreTokenGenerationFunction
-  
+
+  # Cognito Lambda Permissions
   CognitoPostConfirmationPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -642,8 +1000,7 @@ Resources:
       Principal: cognito-idp.amazonaws.com
       Action: lambda:InvokeFunction
       SourceArn: !GetAtt CognitoUserPool.Arn
-    Metadata:
-      SamResourceId: CognitoPostConfirmationPermission
+
   CognitoPreSignUpPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -651,8 +1008,7 @@ Resources:
       Principal: cognito-idp.amazonaws.com
       Action: lambda:InvokeFunction
       SourceArn: !GetAtt CognitoUserPool.Arn
-    Metadata:
-      SamResourceId: CognitoPreSignUpPermission
+
   CognitoCustomMessagePermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -660,8 +1016,7 @@ Resources:
       Principal: cognito-idp.amazonaws.com
       Action: lambda:InvokeFunction
       SourceArn: !GetAtt CognitoUserPool.Arn
-    Metadata:
-      SamResourceId: CognitoCustomMessagePermission
+
   CognitoPreTokenGenerationPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -669,38 +1024,93 @@ Resources:
       Principal: cognito-idp.amazonaws.com
       Action: lambda:InvokeFunction
       SourceArn: !GetAtt CognitoUserPool.Arn
-    Metadata:
-      SamResourceId: CognitoPreTokenGenerationPermission
 
 Outputs:
+  # Authentication Outputs
   UserPoolId:
     Description: Cognito User Pool ID
     Value: !Ref CognitoUserPool
+    Export:
+      Name: !Sub ${AWS::StackName}-UserPoolId
+
   UserPoolClientId:
     Description: Cognito User Pool Client ID
     Value: !Ref CognitoUserPoolClient
+    Export:
+      Name: !Sub ${AWS::StackName}-UserPoolClientId
+
   CognitoHostedDomain:
     Description: Cognito Hosted UI domain
     Value: auth.schematicstory.com
+    Export:
+      Name: !Sub ${AWS::StackName}-CognitoHostedDomain
+
+  # API Outputs
   ApiUrl:
     Description: API Gateway endpoint URL
     Value: !Sub https://${SchematicStoryApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/
+    Export:
+      Name: !Sub ${AWS::StackName}-ApiUrl
+
   ApiCustomDomain:
     Description: Custom domain for API Gateway
     Value: !Sub https://${ApiCustomDomainName}/
+    Export:
+      Name: !Sub ${AWS::StackName}-ApiCustomDomain
+
   ApiGatewayDnsTarget:
     Description: Target you should CNAME to in Cloudflare
     Value: !GetAtt ApiGatewayCustomDomain.DistributionDomainName
+    Export:
+      Name: !Sub ${AWS::StackName}-ApiGatewayDnsTarget
+
+  # Storage Outputs
   S3BucketName:
     Description: S3 bucket for schematic files
     Value: !Ref S3BucketName
+    Export:
+      Name: !Sub ${AWS::StackName}-S3BucketName
+
+  S3ImagesBucketName:
+    Description: S3 bucket for image files
+    Value: !Ref S3ImageBucketName
+    Export:
+      Name: !Sub ${AWS::StackName}-S3ImagesBucketName
+
+  # CDN Outputs
+  SchematicsCloudFrontDomain:
+    Description: CloudFront domain for schematics
+    Value: !GetAtt SchematicsCloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub ${AWS::StackName}-SchematicsCloudFrontDomain
+
+  ImagesCloudFrontDomain:
+    Description: CloudFront domain for images
+    Value: !GetAtt ImagesCloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub ${AWS::StackName}-ImagesCloudFrontDomain
+
+  # Lambda Function ARNs
   CognitoPostConfirmationFunctionArn:
     Description: ARN of the Post Confirmation Lambda function
     Value: !GetAtt CognitoPostConfirmationFunction.Arn
     Export:
       Name: !Sub ${AWS::StackName}-PostConfirmationArn
+
   CognitoPreSignUpFunctionArn:
     Description: ARN of the Pre Sign-up Lambda function
     Value: !GetAtt CognitoPreSignUpFunction.Arn
     Export:
       Name: !Sub ${AWS::StackName}-PreSignUpArn
+
+  ProcessImageUploadFunctionArn:
+    Description: ARN of the Image Processing Lambda function
+    Value: !GetAtt ProcessImageUploadFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-ProcessImageUploadArn
+
+  ProcessSchematicUploadFunctionArn:
+    Description: ARN of the Schematic Processing Lambda function
+    Value: !GetAtt ProcessSchematicUploadFunction.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-ProcessSchematicUploadArn
