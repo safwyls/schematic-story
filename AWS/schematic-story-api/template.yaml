@@ -19,6 +19,7 @@ Globals:
         ENVIRONMENT:
           Ref: Environment
         AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
+        MAX_IMAGE_SIZE_MB: 10
     Tracing: Active
 
 Parameters:
@@ -145,6 +146,13 @@ Resources:
                 Rules:
                   - Name: prefix
                     Value: gallery/
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt ProcessImageUploadFunction.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: thumbnails/
 
 #==================================================================================================
 # CLOUDFRONT DISTRIBUTIONS
@@ -378,7 +386,7 @@ Resources:
       Timeout: 60
       MemorySize: 1024
       Layers:
-        - arn:aws:lambda:us-east-1:175033217214:layer:graphicsmagick:2
+        - arn:aws:lambda:us-east-2:175033217214:layer:sharp:4
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref S3ImageBucketName

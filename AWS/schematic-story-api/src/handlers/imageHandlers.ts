@@ -12,7 +12,6 @@ const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 // Generate upload URL for images
 export const getImageUploadUrl = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    // FIX 1: Correct way to extract userId from Cognito JWT
     const userId = event.requestContext.authorizer?.claims?.sub;
     
     if (!userId) {
@@ -37,7 +36,6 @@ export const getImageUploadUrl = async (event: APIGatewayProxyEvent): Promise<AP
       generateThumbnail = true 
     } = body;
 
-    // FIX 2: Add input validation
     if (!fileName || !fileSize || !contentType) {
       return {
         statusCode: 400,
@@ -61,7 +59,6 @@ export const getImageUploadUrl = async (event: APIGatewayProxyEvent): Promise<AP
       };
     }
 
-    // FIX 3: Validate schematicId is required for non-avatar images
     if (imageType !== 'avatar' && !schematicId) {
       return {
         statusCode: 400,
@@ -94,11 +91,12 @@ export const getImageUploadUrl = async (event: APIGatewayProxyEvent): Promise<AP
     }
 
     // Create presigned POST URL
+    const maxFileSize = parseInt(process.env.MAX_IMAGE_SIZE_MB || '10') * 1024 * 1024;
     const { url, fields } = await createPresignedPost(s3Client, {
       Bucket: process.env.S3_IMAGES_BUCKET_NAME!,
       Key: s3Key,
       Conditions: [
-        ['content-length-range', 0, 10 * 1024 * 1024], // Max 10MB
+        ['content-length-range', 0, maxFileSize],
         ['starts-with', '$Content-Type', 'image/'],
       ],
       Fields: {
@@ -152,7 +150,7 @@ export const getImageUploadUrl = async (event: APIGatewayProxyEvent): Promise<AP
       };
 
       await dynamoClient.send(new PutItemCommand({
-        TableName: process.env.TABLE_NAME!, // FIX 4: Use TABLE_NAME
+        TableName: process.env.TABLE_NAME!,
         Item: marshall(associationItem)
       }));
     }
@@ -187,7 +185,7 @@ export const getImageUploadUrl = async (event: APIGatewayProxyEvent): Promise<AP
 export const confirmImageUpload = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     const imageId = event.pathParameters?.imageId;
-    const userId = event.requestContext.authorizer?.claims?.sub; // FIX 5: Correct JWT path
+    const userId = event.requestContext.authorizer?.claims?.sub;
 
     if (!imageId) {
       return {
@@ -213,7 +211,7 @@ export const confirmImageUpload = async (event: APIGatewayProxyEvent): Promise<A
 
     // Get image record from DynamoDB
     const getItemResponse = await dynamoClient.send(new QueryCommand({
-      TableName: process.env.TABLE_NAME!, // FIX 6: Use TABLE_NAME
+      TableName: process.env.TABLE_NAME!,
       KeyConditionExpression: 'PK = :pk AND SK = :sk',
       ExpressionAttributeValues: marshall({
         ':pk': `IMAGE#${imageId}`,
@@ -246,7 +244,6 @@ export const confirmImageUpload = async (event: APIGatewayProxyEvent): Promise<A
       };
     }
 
-    // FIX 7: Use UpdateItemCommand instead of PutItemCommand to avoid overwriting
     await dynamoClient.send(new UpdateItemCommand({
       TableName: process.env.TABLE_NAME!,
       Key: marshall({
@@ -295,10 +292,10 @@ export const confirmImageUpload = async (event: APIGatewayProxyEvent): Promise<A
 };
 
 // S3 Event handler for image processing
-export const processImageUpload = async (event: S3Event): Promise<void> => { // FIX 8: Add return type
+export const processImageUpload = async (event: S3Event): Promise<void> => {
   for (const record of event.Records) {
     const bucket = record.s3.bucket.name;
-    const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' ')); // FIX 9: Decode URL-encoded key
+    const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
     
     // Extract image ID from key structure
     const imageId = extractImageIdFromKey(key);
@@ -314,7 +311,6 @@ export const processImageUpload = async (event: S3Event): Promise<void> => { // 
         Key: key
       }));
 
-      // FIX 10: Add null check for Body
       if (!getObjectResponse.Body) {
         throw new Error('No body in S3 response');
       }
@@ -324,7 +320,6 @@ export const processImageUpload = async (event: S3Event): Promise<void> => { // 
       // Process image with Sharp
       const imageMetadata = await sharp(originalBuffer).metadata();
       
-      // FIX 11: Add metadata validation
       if (!imageMetadata.width || !imageMetadata.height) {
         throw new Error('Invalid image: no dimensions');
       }
@@ -370,7 +365,7 @@ export const processImageUpload = async (event: S3Event): Promise<void> => { // 
 
       // Update DynamoDB with processing results
       await dynamoClient.send(new UpdateItemCommand({
-        TableName: process.env.TABLE_NAME!, // FIX 12: Use TABLE_NAME
+        TableName: process.env.TABLE_NAME!,
         Key: marshall({
           PK: `IMAGE#${imageId}`,
           SK: 'METADATA'
@@ -398,7 +393,7 @@ export const processImageUpload = async (event: S3Event): Promise<void> => { // 
       // Mark as failed
       try {
         await dynamoClient.send(new UpdateItemCommand({
-          TableName: process.env.TABLE_NAME!, // FIX 13: Use TABLE_NAME
+          TableName: process.env.TABLE_NAME!,
           Key: marshall({
             PK: `IMAGE#${imageId}`,
             SK: 'METADATA'
