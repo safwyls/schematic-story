@@ -6,6 +6,8 @@ Globals:
   Function:
     Timeout: 30
     Runtime: nodejs22.x
+    Layers:
+      - !Ref DependenciesLayer
     Environment:
       Variables:
         TABLE_NAME:
@@ -316,6 +318,19 @@ Resources:
       CompatibleArchitectures:
         - x86_64
 
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub ${AWS::StackName}-dependencies-layer
+      Description: Shared Node.js dependencies including uuid, AWS SDK, etc.
+      ContentUri: layers/dependencies-layer/
+      CompatibleRuntimes:
+        - nodejs18.x
+        - nodejs20.x
+        - nodejs22.x
+      CompatibleArchitectures:
+        - x86_64
+
 #==================================================================================================
 # IMAGE UPLOAD FUNCTIONS
 #==================================================================================================
@@ -324,6 +339,8 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.getImageUploadUrl
+      Layers:
+        - !Ref SharpLayer
       Policies:
         - S3WritePolicy:
             BucketName: !Ref S3ImageBucketName
@@ -342,6 +359,8 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.confirmImageUpload
+      Layers:
+        - !Ref SharpLayer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTableName
@@ -373,6 +392,8 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.getSchematicImages
+      Layers:
+        - !Ref SharpLayer
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref DynamoDBTableName
@@ -391,6 +412,8 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.setCoverImage
+      Layers:
+        - !Ref SharpLayer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTableName
@@ -407,6 +430,8 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.deleteImage
+      Layers:
+        - !Ref SharpLayer
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref S3ImageBucketName
@@ -425,6 +450,8 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.getUserAvatar
+      Layers:
+        - !Ref SharpLayer
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref DynamoDBTableName
@@ -443,6 +470,8 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.updateUserAvatar
+      Layers:
+        - !Ref SharpLayer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTableName
