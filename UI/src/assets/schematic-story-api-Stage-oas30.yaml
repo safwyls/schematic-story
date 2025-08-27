@@ -1,0 +1,1453 @@
+openapi: "3.0.3"
+info:
+  title: "Schematic Story API"
+  version: "1.0.0"
+  description: >
+    A comprehensive API for sharing and discovering Vintage Story schematics.
+
+
+    This platform allows users to upload and share their Vintage Story creations,
+    browse and download schematics from the community, follow creators and get
+    notifications, comment on and interact with shared content, and organize
+    content with tags and categories.
+
+
+    **Authentication:** This API uses AWS Cognito User Pools for authentication.
+    Include your JWT token in the Authorization header as `Bearer <token>`.
+
+
+    **Rate Limits:** Authenticated requests: 1000/hour, Unauthenticated: 100/hour
+
+
+    **Pagination:** List endpoints support cursor-based pagination using `nextToken`.
+  contact:
+    name: "Schematic Story Support"
+    email: "support@schematicstory.com"
+  license:
+    name: "MIT"
+    url: "https://opensource.org/licenses/MIT"
+
+servers:
+  - url: "https://api.schematicstory.com"
+    description: "Production server"
+  - url: "https://dev-api.schematicstory.com"  
+    description: "Development server"
+
+tags:
+  - name: "Health"
+    description: "API health and status endpoints"
+  - name: "Users"
+    description: "User management and profile operations"
+  - name: "Schematics" 
+    description: "Schematic upload, management, and discovery"
+  - name: "Comments"
+    description: "Comment system for schematics"
+  - name: "Social"
+    description: "Follow system and social interactions"
+  - name: "Notifications"
+    description: "User notification management"
+  - name: "Images"
+    description: "Image upload and management"
+
+paths:
+  /health:
+    get:
+      tags: ["Health"]
+      summary: "Health check endpoint"
+      description: "Returns the current API health status and version information"
+      responses:
+        "200":
+          description: "API is healthy"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: "healthy"
+                timestamp: "2024-01-15T10:30:00Z"
+                environment: "production"
+                version: "1.0.0"
+    options:
+      tags: ["Health"]
+      summary: "CORS preflight for health endpoint"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /users:
+    post:
+      tags: ["Users"]
+      summary: "Create a new user account"
+      description: "Register a new user account in the system"
+      security:
+        - CognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            example:
+              username: "john_builder"
+              email: "john@example.com"
+              displayName: "John the Builder"
+              bio: "Love creating medieval structures in Vintage Story!"
+      responses:
+        "201":
+          description: "User created successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+    options:
+      tags: ["Users"]
+      summary: "CORS preflight for users endpoint"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /users/{userId}:
+    get:
+      tags: ["Users"]
+      summary: "Get user profile by ID"
+      description: "Retrieve detailed information about a specific user"
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+      responses:
+        "200":
+          description: "User profile retrieved successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+              example:
+                userId: "user-123"
+                username: "john_builder"
+                displayName: "John the Builder"
+                bio: "Love creating medieval structures!"
+                avatarUrl: "https://cdn.schematicstory.com/avatars/user-123.jpg"
+                followerCount: 42
+                followingCount: 15
+                schematicCount: 8
+                joinedAt: "2024-01-01T00:00:00Z"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    options:
+      tags: ["Users"]
+      summary: "CORS preflight for user profile endpoint"
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /users/{userId}/schematics:
+    get:
+      tags: ["Users"]
+      summary: "Get user's schematics"
+      description: "Retrieve all schematics created by a specific user with pagination support"
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/NextTokenParam"
+      responses:
+        "200":
+          description: "User schematics retrieved successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedSchematicsResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    options:
+      tags: ["Users"]
+      summary: "CORS preflight for user schematics endpoint"
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /users/{userId}/follow:
+    post:
+      tags: ["Social"]
+      summary: "Follow a user"
+      description: "Start following another user to receive updates about their content"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+      responses:
+        "200":
+          description: "Successfully followed user"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                message: "Successfully followed user"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags: ["Social"]
+      summary: "Unfollow a user"
+      description: "Stop following a user"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+      responses:
+        "200":
+          description: "Successfully unfollowed user"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+    options:
+      tags: ["Social"]
+      summary: "CORS preflight for follow endpoint"
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /users/{userId}/followers:
+    get:
+      tags: ["Social"]
+      summary: "Get user's followers"
+      description: "Retrieve list of users following this user"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/NextTokenParam"
+      responses:
+        "200":
+          description: "Followers retrieved successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedFollowersResponse"
+    options:
+      tags: ["Social"]
+      summary: "CORS preflight for followers endpoint"
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /users/{userId}/following:
+    get:
+      tags: ["Social"]
+      summary: "Get users this user follows"
+      description: "Retrieve list of users this user is following"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/NextTokenParam"
+      responses:
+        "200":
+          description: "Following list retrieved successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedFollowersResponse"
+    options:
+      tags: ["Social"]
+      summary: "CORS preflight for following endpoint"
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /schematics:
+    post:
+      tags: ["Schematics"]
+      summary: "Create a new schematic"
+      description: "Upload and create a new schematic in the system"
+      security:
+        - CognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSchematicRequest"
+            example:
+              title: "Medieval Castle Gate"
+              description: "A detailed castle gate with working portcullis mechanism"
+              tags: ["castle", "medieval", "gate", "redstone"]
+              fileUrl: "https://s3.amazonaws.com/schematics/abc123.schematic"
+              coverImageUrl: "https://cdn.schematicstory.com/covers/abc123.jpg"
+              dimensions:
+                width: 15
+                height: 12
+                length: 8
+              blockCount: 1440
+      responses:
+        "201":
+          description: "Schematic created successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchematicResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+    options:
+      tags: ["Schematics"]
+      summary: "CORS preflight for schematics endpoint"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /schematics/{schematicId}:
+    get:
+      tags: ["Schematics"]
+      summary: "Get schematic by ID"
+      description: "Retrieve detailed information about a specific schematic"
+      parameters:
+        - $ref: "#/components/parameters/SchematicIdParam"
+      responses:
+        "200":
+          description: "Schematic retrieved successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchematicResponse"
+              example:
+                schematicId: "sch-abc123"
+                title: "Medieval Castle Gate"
+                description: "A detailed castle gate with working portcullis"
+                authorId: "user-123"
+                authorUsername: "john_builder"
+                tags: ["castle", "medieval", "gate"]
+                status: "active"
+                version: 2
+                viewCount: 1523
+                downloadCount: 89
+                createdAt: "2024-01-10T00:00:00Z"
+                updatedAt: "2024-01-15T10:30:00Z"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    put:
+      tags: ["Schematics"]
+      summary: "Update schematic"
+      description: "Update schematic metadata (only by the owner)"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SchematicIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSchematicRequest"
+            example:
+              title: "Updated Castle Gate"
+              description: "Now with improved portcullis mechanism!"
+              tags: ["castle", "medieval", "gate", "updated"]
+      responses:
+        "200":
+          description: "Schematic updated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchematicResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags: ["Schematics"]
+      summary: "Delete schematic"
+      description: "Soft delete a schematic (only by the owner)"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SchematicIdParam"
+      responses:
+        "200":
+          description: "Schematic deleted successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    options:
+      tags: ["Schematics"]
+      summary: "CORS preflight for schematic operations"
+      parameters:
+        - $ref: "#/components/parameters/SchematicIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /schematics/feed/latest:
+    get:
+      tags: ["Schematics"]
+      summary: "Get latest schematics feed"
+      description: "Retrieve the most recently uploaded schematics across the platform"
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/NextTokenParam"
+      responses:
+        "200":
+          description: "Latest schematics retrieved successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedSchematicsResponse"
+    options:
+      tags: ["Schematics"]
+      summary: "CORS preflight for latest feed endpoint"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /schematics/tag/{tagName}:
+    get:
+      tags: ["Schematics"]
+      summary: "Get schematics by tag"
+      description: "Retrieve schematics filtered by a specific tag"
+      parameters:
+        - name: "tagName"
+          in: "path"
+          required: true
+          description: "Tag name to filter by"
+          schema:
+            type: "string"
+            example: "castle"
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/NextTokenParam"
+      responses:
+        "200":
+          description: "Tagged schematics retrieved successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedSchematicsResponse"
+    options:
+      tags: ["Schematics"]
+      summary: "CORS preflight for tag endpoint"
+      parameters:
+        - name: "tagName"
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /schematics/upload-url:
+    post:
+      tags: ["Schematics"]
+      summary: "Get schematic file upload URL"
+      description: "Generate a presigned URL for uploading schematic files to S3"
+      security:
+        - CognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: ["filename"]
+              properties:
+                filename:
+                  type: string
+                  description: "Name of the schematic file"
+                  example: "castle_gate.schematic"
+                contentType:
+                  type: string
+                  description: "MIME type of the file"
+                  example: "application/octet-stream"
+            example:
+              filename: "medieval_castle.schematic"
+              contentType: "application/octet-stream"
+      responses:
+        "200":
+          description: "Upload URL generated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+    options:
+      tags: ["Schematics"]
+      summary: "CORS preflight for upload URL endpoint"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /schematics/{schematicId}/download-url:
+    get:
+      tags: ["Schematics"]
+      summary: "Get schematic download URL"
+      description: "Get a presigned URL to download the schematic file"
+      parameters:
+        - $ref: "#/components/parameters/SchematicIdParam"
+      responses:
+        "200":
+          description: "Download URL generated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadUrlResponse"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    options:
+      tags: ["Schematics"]
+      summary: "CORS preflight for download URL endpoint"
+      parameters:
+        - $ref: "#/components/parameters/SchematicIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /schematics/{schematicId}/comments:
+    get:
+      tags: ["Comments"]
+      summary: "Get schematic comments"
+      description: "Retrieve all comments for a specific schematic"
+      parameters:
+        - $ref: "#/components/parameters/SchematicIdParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/NextTokenParam"
+      responses:
+        "200":
+          description: "Comments retrieved successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedCommentsResponse"
+    post:
+      tags: ["Comments"]
+      summary: "Create a comment"
+      description: "Add a new comment to a schematic"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SchematicIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: ["content"]
+              properties:
+                content:
+                  type: string
+                  description: "Comment text content"
+                  minLength: 1
+                  maxLength: 1000
+                  example: "Amazing build! How long did this take to create?"
+      responses:
+        "201":
+          description: "Comment created successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+    options:
+      tags: ["Comments"]
+      summary: "CORS preflight for comments endpoint"
+      parameters:
+        - $ref: "#/components/parameters/SchematicIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /comments/{commentId}:
+    put:
+      tags: ["Comments"]
+      summary: "Update comment"
+      description: "Update a comment (only by the author)"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CommentIdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: ["content"]
+              properties:
+                content:
+                  type: string
+                  description: "Updated comment text"
+                  minLength: 1
+                  maxLength: 1000
+                  example: "Updated: Amazing build! How long did this take?"
+      responses:
+        "200":
+          description: "Comment updated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    delete:
+      tags: ["Comments"]
+      summary: "Delete comment"
+      description: "Delete a comment (only by the author)"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CommentIdParam"
+      responses:
+        "200":
+          description: "Comment deleted successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+    options:
+      tags: ["Comments"]
+      summary: "CORS preflight for comment operations"
+      parameters:
+        - $ref: "#/components/parameters/CommentIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /users/{userId}/notifications:
+    get:
+      tags: ["Notifications"]
+      summary: "Get user notifications"
+      description: "Retrieve notifications for the authenticated user"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/NextTokenParam"
+        - name: "unreadOnly"
+          in: "query"
+          description: "Filter to only unread notifications"
+          schema:
+            type: boolean
+            default: false
+          example: true
+      responses:
+        "200":
+          description: "Notifications retrieved successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedNotificationsResponse"
+    options:
+      tags: ["Notifications"]
+      summary: "CORS preflight for notifications endpoint"
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /users/{userId}/notifications/read-all:
+    put:
+      tags: ["Notifications"]
+      summary: "Mark all notifications as read"
+      description: "Mark all user notifications as read"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+      responses:
+        "200":
+          description: "All notifications marked as read"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+    options:
+      tags: ["Notifications"]
+      summary: "CORS preflight for mark all read endpoint"
+      parameters:
+        - $ref: "#/components/parameters/UserIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /notifications/{notificationId}/read:
+    put:
+      tags: ["Notifications"]
+      summary: "Mark notification as read"
+      description: "Mark a specific notification as read"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/NotificationIdParam"
+      responses:
+        "200":
+          description: "Notification marked as read"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+    options:
+      tags: ["Notifications"]
+      summary: "CORS preflight for mark read endpoint"
+      parameters:
+        - $ref: "#/components/parameters/NotificationIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /images/upload-url:
+    post:
+      tags: ["Images"]
+      summary: "Get image upload URL"
+      description: "Generate a presigned URL for uploading images (covers, gallery, avatars)"
+      security:
+        - CognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImageUploadRequest"
+            example:
+              fileName: "castle_screenshot.jpg"
+              fileSize: 2048576
+              contentType: "image/jpeg"
+              imageType: "gallery"
+              schematicId: "sch-abc123"
+      responses:
+        "200":
+          description: "Upload URL generated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageUploadResponse"
+    options:
+      tags: ["Images"]
+      summary: "CORS preflight for image upload endpoint"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /images/{imageId}/confirm-upload:
+    post:
+      tags: ["Images"]
+      summary: "Confirm image upload"
+      description: "Confirm that an image upload was completed successfully"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ImageIdParam"
+      responses:
+        "200":
+          description: "Upload confirmed successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageConfirmResponse"
+    options:
+      tags: ["Images"]
+      summary: "CORS preflight for image confirm endpoint"
+      parameters:
+        - $ref: "#/components/parameters/ImageIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+  /images/{imageId}:
+    delete:
+      tags: ["Images"]
+      summary: "Delete image"
+      description: "Delete an image (only by the uploader)"
+      security:
+        - CognitoAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ImageIdParam"
+      responses:
+        "200":
+          description: "Image deleted successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+    options:
+      tags: ["Images"]
+      summary: "CORS preflight for image delete endpoint"
+      parameters:
+        - $ref: "#/components/parameters/ImageIdParam"
+      responses:
+        "200":
+          $ref: "#/components/responses/CorsResponse"
+
+components:
+  securitySchemes:
+    CognitoAuth:
+      type: "http"
+      scheme: "bearer"
+      bearerFormat: "JWT"
+      description: "AWS Cognito JWT token. Include in Authorization header as 'Bearer <token>'"
+
+  parameters:
+    UserIdParam:
+      name: "userId"
+      in: "path"
+      required: true
+      description: "Unique user identifier"
+      schema:
+        type: "string"
+        pattern: "^user-[a-zA-Z0-9-]+$"
+        example: "user-123abc"
+
+    SchematicIdParam:
+      name: "schematicId"
+      in: "path"
+      required: true
+      description: "Unique schematic identifier"
+      schema:
+        type: "string"
+        pattern: "^sch-[a-zA-Z0-9-]+$"
+        example: "sch-abc123"
+
+    CommentIdParam:
+      name: "commentId"
+      in: "path"
+      required: true
+      description: "Unique comment identifier"
+      schema:
+        type: "string"
+        pattern: "^com-[a-zA-Z0-9-]+$"
+        example: "com-xyz789"
+
+    NotificationIdParam:
+      name: "notificationId"
+      in: "path"
+      required: true
+      description: "Unique notification identifier"
+      schema:
+        type: "string"
+        pattern: "^notif-[a-zA-Z0-9-]+$"
+        example: "notif-def456"
+
+    ImageIdParam:
+      name: "imageId"
+      in: "path"
+      required: true
+      description: "Unique image identifier"
+      schema:
+        type: "string"
+        pattern: "^img-[a-zA-Z0-9-]+$"
+        example: "img-ghi789"
+
+    LimitParam:
+      name: "limit"
+      in: "query"
+      description: "Maximum number of items to return"
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 20
+
+    NextTokenParam:
+      name: "nextToken"
+      in: "query"
+      description: "Pagination token for getting the next page of results"
+      schema:
+        type: string
+      example: "eyJsYXN0RXZhbHVhdGVkS2V5Ijp7IlBLIjoidXNlci0xMjMiLCJTSyI6InNjaGVtYXRpYy0yMDI0MDExNSJ9fQ=="
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, timestamp, environment, version]
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+        environment:
+          type: string
+          example: "production"
+        version:
+          type: string
+          example: "1.0.0"
+
+    CreateUserRequest:
+      type: object
+      required: [username, email]
+      properties:
+        username:
+          type: string
+          pattern: "^[a-zA-Z0-9_-]{3,20}$"
+          description: "Unique username (3-20 characters, alphanumeric, underscore, hyphen only)"
+          example: "john_builder"
+        email:
+          type: string
+          format: email
+          description: "User's email address"
+          example: "john@example.com"
+        displayName:
+          type: string
+          maxLength: 100
+          description: "User's display name"
+          example: "John the Builder"
+        bio:
+          type: string
+          maxLength: 500
+          description: "User's biography"
+          example: "Love creating medieval structures in Vintage Story!"
+
+    UserResponse:
+      type: object
+      required: [userId, username, displayName, status, createdAt]
+      properties:
+        userId:
+          type: string
+          example: "user-123abc"
+        username:
+          type: string
+          example: "john_builder"
+        displayName:
+          type: string
+          example: "John the Builder"
+        bio:
+          type: string
+          example: "Love creating medieval structures!"
+        avatarUrl:
+          type: string
+          format: uri
+          example: "https://cdn.schematicstory.com/avatars/user-123.jpg"
+        status:
+          type: string
+          enum: [active, suspended, deleted]
+          example: "active"
+        followerCount:
+          type: integer
+          example: 42
+        followingCount:
+          type: integer
+          example: 15
+        schematicCount:
+          type: integer
+          example: 8
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+
+    CreateSchematicRequest:
+      type: object
+      required: [title, fileUrl]
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 100
+          description: "Schematic title"
+          example: "Medieval Castle Gate"
+        description:
+          type: string
+          maxLength: 2000
+          description: "Detailed description of the schematic"
+          example: "A detailed castle gate with working portcullis mechanism"
+        tags:
+          type: array
+          items:
+            type: string
+            pattern: "^[a-zA-Z0-9_-]{2,30}$"
+          maxItems: 10
+          description: "Tags for categorizing the schematic"
+          example: ["castle", "medieval", "gate", "redstone"]
+        fileUrl:
+          type: string
+          format: uri
+          description: "URL to the uploaded schematic file"
+          example: "https://s3.amazonaws.com/schematics/abc123.schematic"
+        coverImageUrl:
+          type: string
+          format: uri
+          description: "URL to the cover image"
+          example: "https://cdn.schematicstory.com/covers/abc123.jpg"
+        dimensions:
+          $ref: "#/components/schemas/Dimensions"
+        blockCount:
+          type: integer
+          minimum: 1
+          description: "Total number of blocks in the schematic"
+          example: 1440
+
+    UpdateSchematicRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 100
+          example: "Updated Castle Gate"
+        description:
+          type: string
+          maxLength: 2000
+          example: "Now with improved portcullis mechanism!"
+        tags:
+          type: array
+          items:
+            type: string
+            pattern: "^[a-zA-Z0-9_-]{2,30}$"
+          maxItems: 10
+          example: ["castle", "medieval", "gate", "updated"]
+
+    SchematicResponse:
+      type: object
+      required: [schematicId, title, authorId, authorUsername, status, version, createdAt]
+      properties:
+        schematicId:
+          type: string
+          example: "sch-abc123"
+        title:
+          type: string
+          example: "Medieval Castle Gate"
+        description:
+          type: string
+          example: "A detailed castle gate with working portcullis"
+        authorId:
+          type: string
+          example: "user-123"
+        authorUsername:
+          type: string
+          example: "john_builder"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["castle", "medieval", "gate"]
+        status:
+          type: string
+          enum: [active, deleted, pending]
+          example: "active"
+        version:
+          type: integer
+          example: 2
+        viewCount:
+          type: integer
+          example: 1523
+        downloadCount:
+          type: integer
+          example: 89
+        commentCount:
+          type: integer
+          example: 12
+        dimensions:
+          $ref: "#/components/schemas/Dimensions"
+        blockCount:
+          type: integer
+          example: 1440
+        fileUrl:
+          type: string
+          format: uri
+          example: "https://s3.amazonaws.com/schematics/abc123.schematic"
+        coverImageUrl:
+          type: string
+          format: uri
+          example: "https://cdn.schematicstory.com/covers/abc123.jpg"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-10T00:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+
+    Dimensions:
+      type: object
+      required: [width, height, length]
+      properties:
+        width:
+          type: integer
+          minimum: 1
+          example: 15
+        height:
+          type: integer
+          minimum: 1
+          example: 12
+        length:
+          type: integer
+          minimum: 1
+          example: 8
+
+    CommentResponse:
+      type: object
+      required: [commentId, schematicId, authorId, authorUsername, content, status, createdAt]
+      properties:
+        commentId:
+          type: string
+          example: "com-xyz789"
+        schematicId:
+          type: string
+          example: "sch-abc123"
+        authorId:
+          type: string
+          example: "user-456"
+        authorUsername:
+          type: string
+          example: "jane_architect"
+        content:
+          type: string
+          example: "Amazing build! How long did this take to create?"
+        status:
+          type: string
+          enum: [active, deleted, flagged]
+          example: "active"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T12:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T12:00:00Z"
+
+    NotificationResponse:
+      type: object
+      required: [notificationId, type, message, isRead, createdAt]
+      properties:
+        notificationId:
+          type: string
+          example: "notif-def456"
+        type:
+          type: string
+          enum: [NEW_COMMENT, NEW_FOLLOWER, SCHEMATIC_LIKED, WELCOME]
+          example: "NEW_COMMENT"
+        message:
+          type: string
+          example: "jane_architect commented on your schematic 'Medieval Castle Gate'"
+        relatedEntityId:
+          type: string
+          description: "ID of related schematic, user, or comment"
+          example: "sch-abc123"
+        fromUserId:
+          type: string
+          example: "user-456"
+        fromUsername:
+          type: string
+          example: "jane_architect"
+        isRead:
+          type: boolean
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T12:00:00Z"
+
+    FollowerResponse:
+      type: object
+      required: [userId, username, displayName, followedAt]
+      properties:
+        userId:
+          type: string
+          example: "user-789"
+        username:
+          type: string
+          example: "alice_creator"
+        displayName:
+          type: string
+          example: "Alice the Creator"
+        avatarUrl:
+          type: string
+          format: uri
+          example: "https://cdn.schematicstory.com/avatars/user-789.jpg"
+        followedAt:
+          type: string
+          format: date-time
+          example: "2024-01-05T00:00:00Z"
+
+    ImageUploadRequest:
+      type: object
+      required: [fileName, fileSize, contentType, imageType]
+      properties:
+        fileName:
+          type: string
+          example: "castle_screenshot.jpg"
+        fileSize:
+          type: integer
+          minimum: 1
+          maximum: 10485760
+          description: "File size in bytes (max 10MB)"
+          example: 2048576
+        contentType:
+          type: string
+          pattern: "^image/(jpeg|png|webp|gif)$"
+          example: "image/jpeg"
+        imageType:
+          type: string
+          enum: [cover, gallery, avatar, thumbnail]
+          example: "gallery"
+        schematicId:
+          type: string
+          description: "Required for cover, gallery, and thumbnail images"
+          example: "sch-abc123"
+        generateThumbnail:
+          type: boolean
+          default: true
+          description: "Whether to generate a thumbnail version"
+
+    ImageUploadResponse:
+      type: object
+      required: [uploadUrl, fields, imageId]
+      properties:
+        uploadUrl:
+          type: string
+          format: uri
+          description: "S3 presigned POST URL"
+          example: "https://s3.amazonaws.com/bucket"
+        fields:
+          type: object
+          description: "Additional fields required for the POST request"
+          additionalProperties:
+            type: string
+          example:
+            key: "images/img-123/photo.jpg"
+            policy: "eyJleHBpcmF0aW9uIjoiMjAyNC0wMS0xNVQxMTozMDowMFoiLCJjb25kaXRpb25zIjpbWyJjb250ZW50LWxlbmd0aC1yYW5nZSIsMCwxMDQ4NTc2MF1dfQ=="
+            signature: "abcd1234"
+        imageId:
+          type: string
+          example: "img-ghi789"
+
+    ImageConfirmResponse:
+      type: object
+      required: [message, imageId, imageUrl]
+      properties:
+        message:
+          type: string
+          example: "Upload confirmed"
+        imageId:
+          type: string
+          example: "img-ghi789"
+        imageUrl:
+          type: string
+          format: uri
+          example: "https://cdn.schematicstory.com/images/img-ghi789.jpg"
+        thumbnailUrl:
+          type: string
+          format: uri
+          example: "https://cdn.schematicstory.com/images/img-ghi789_thumb.jpg"
+
+    UploadUrlResponse:
+      type: object
+      required: [uploadUrl, s3Key, expiresIn]
+      properties:
+        uploadUrl:
+          type: string
+          format: uri
+          description: "Presigned URL for file upload"
+          example: "https://s3.amazonaws.com/bucket/schematics/user-123/1641988800-medieval_castle.schematic"
+        s3Key:
+          type: string
+          description: "S3 key for the uploaded file"
+          example: "schematics/user-123/1641988800-medieval_castle.schematic"
+        expiresIn:
+          type: integer
+          description: "URL expiration time in seconds"
+          example: 3600
+
+    DownloadUrlResponse:
+      type: object
+      required: [downloadUrl, expiresIn, filename]
+      properties:
+        downloadUrl:
+          type: string
+          format: uri
+          description: "Presigned URL for file download"
+          example: "https://s3.amazonaws.com/bucket/schematics/abc123.schematic"
+        expiresIn:
+          type: integer
+          description: "URL expiration time in seconds"
+          example: 3600
+        filename:
+          type: string
+          description: "Suggested filename for download"
+          example: "Medieval_Castle_Gate.schematic"
+
+    PaginatedSchematicsResponse:
+      type: object
+      required: [items, count]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SchematicResponse"
+        count:
+          type: integer
+          description: "Number of items in this page"
+          example: 20
+        nextToken:
+          type: string
+          description: "Token for fetching the next page"
+          example: "eyJsYXN0RXZhbHVhdGVkS2V5Ijp7IlBLIjoidXNlci0xMjMiLCJTSyI6InNjaGVtYXRpYy0yMDI0MDExNSJ9fQ=="
+
+    PaginatedCommentsResponse:
+      type: object
+      required: [items, count]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommentResponse"
+        count:
+          type: integer
+          example: 15
+        nextToken:
+          type: string
+          example: "eyJsYXN0RXZhbHVhdGVkS2V5Ijp7IlBLIjoiY29tLXh5ejc4OSIsIlNLIjoiTUVUQURBVEEifX0="
+
+    PaginatedNotificationsResponse:
+      type: object
+      required: [items, count]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationResponse"
+        count:
+          type: integer
+          example: 10
+        nextToken:
+          type: string
+          example: "eyJsYXN0RXZhbHVhdGVkS2V5Ijp7IlBLIjoidXNlci0xMjMiLCJTSyI6Ik5PVElGIzIwMjQtMDEtMTUifX0="
+
+    PaginatedFollowersResponse:
+      type: object
+      required: [items, count]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FollowerResponse"
+        count:
+          type: integer
+          example: 25
+        nextToken:
+          type: string
+          example: "eyJsYXN0RXZhbHVhdGVkS2V5Ijp7IlBLIjoidXNlci0xMjMiLCJTSyI6IkZPTExPV0lORyJ9fQ=="
+
+    SuccessResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: "Operation completed successfully"
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: "Error type or code"
+          example: "ValidationError"
+        message:
+          type: string
+          description: "Human-readable error message"
+          example: "The provided data is invalid"
+        details:
+          type: array
+          items:
+            type: string
+          description: "Additional error details"
+          example: ["Title must be between 3 and 100 characters"]
+
+  responses:
+    CorsResponse:
+      description: "CORS preflight response"
+      headers:
+        Access-Control-Allow-Origin:
+          schema:
+            type: string
+            example: "*"
+        Access-Control-Allow-Methods:
+          schema:
+            type: string
+            example: "GET,POST,PUT,DELETE,OPTIONS"
+        Access-Control-Allow-Headers:
+          schema:
+            type: string
+            example: "Content-Type,Authorization,X-User-Id"
+
+    ValidationError:
+      description: "Request validation failed"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "ValidationError"
+            message: "Request validation failed"
+            details: ["Title must be between 3 and 100 characters"]
+
+    NotFoundError:
+      description: "Resource not found"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "NotFound"
+            message: "The requested resource was not found"
+
+    ForbiddenError:
+      description: "Access forbidden"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Forbidden"
+            message: "You don't have permission to access this resource"
+
+    ConflictError:
+      description: "Resource conflict"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "Conflict"
+            message: "A resource with this identifier already exists"
