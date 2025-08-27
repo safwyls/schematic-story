@@ -1,5 +1,8 @@
 version = 0.1
 
+[default.build.parameters]
+use_container = false
+
 [default.deploy.parameters]
 stack_name = "schematic-story-api"
 resolve_s3 = true
