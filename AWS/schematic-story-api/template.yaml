@@ -322,7 +322,7 @@ Resources:
   GetImageUploadUrlFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/imageHandlers.getImageUploadUrl
       Policies:
         - S3WritePolicy:
@@ -340,7 +340,7 @@ Resources:
   ConfirmImageUploadFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/imageHandlers.confirmImageUpload
       Policies:
         - DynamoDBCrudPolicy:
@@ -356,7 +356,7 @@ Resources:
   ProcessImageUploadFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/imageHandlers.processImageUpload
       Timeout: 60
       MemorySize: 1024
@@ -371,7 +371,7 @@ Resources:
   GetSchematicImagesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/imageHandlers.getSchematicImages
       Policies:
         - DynamoDBReadPolicy:
@@ -389,7 +389,7 @@ Resources:
   SetCoverImageFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/imageHandlers.setCoverImage
       Policies:
         - DynamoDBCrudPolicy:
@@ -405,7 +405,7 @@ Resources:
   DeleteImageFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/imageHandlers.deleteImage
       Policies:
         - S3CrudPolicy:
@@ -423,7 +423,7 @@ Resources:
   GetUserAvatarFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/imageHandlers.getUserAvatar
       Policies:
         - DynamoDBReadPolicy:
@@ -441,7 +441,7 @@ Resources:
   UpdateUserAvatarFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/imageHandlers.updateUserAvatar
       Policies:
         - DynamoDBCrudPolicy:
@@ -460,7 +460,7 @@ Resources:
   ProcessSchematicUploadFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/schematicHandlers.processSchematicUpload
       Timeout: 30
       Policies:
@@ -472,7 +472,7 @@ Resources:
   ConfirmSchematicUploadFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/schematicHandlers.confirmSchematicUpload
       Policies:
         - DynamoDBCrudPolicy:
@@ -510,7 +510,7 @@ Resources:
   GetUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/userHandlers.getUser
       Policies:
       - DynamoDBReadPolicy:
@@ -529,7 +529,7 @@ Resources:
   CreateUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/userHandlers.createUser
       Policies:
       - DynamoDBCrudPolicy:
@@ -546,7 +546,7 @@ Resources:
   GetUserSchematicsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/userHandlers.getUserSchematics
       Policies:
       - DynamoDBReadPolicy:
@@ -568,7 +568,7 @@ Resources:
   GetSchematicFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/schematicHandlers.getSchematic
       Policies:
       - DynamoDBCrudPolicy:
@@ -587,7 +587,7 @@ Resources:
   CreateSchematicFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/schematicHandlers.createSchematic
       Policies:
       - DynamoDBCrudPolicy:
@@ -604,7 +604,7 @@ Resources:
   UpdateSchematicFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/schematicHandlers.updateSchematic
       Policies:
       - DynamoDBCrudPolicy:
@@ -621,7 +621,7 @@ Resources:
   DeleteSchematicFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/schematicHandlers.deleteSchematic
       Policies:
       - DynamoDBCrudPolicy:
@@ -638,7 +638,7 @@ Resources:
   GetLatestSchematicsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/schematicHandlers.getLatestSchematics
       Policies:
       - DynamoDBReadPolicy:
@@ -657,7 +657,7 @@ Resources:
   GetSchematicsByTagFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/schematicHandlers.getSchematicsByTag
       Policies:
       - DynamoDBReadPolicy:
@@ -676,7 +676,7 @@ Resources:
   GetSchematicDownloadUrlFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/schematicHandlers.getSchematicDownloadUrl
       Policies:
       - DynamoDBCrudPolicy:
@@ -698,7 +698,7 @@ Resources:
   GetSchematicUploadUrlFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/schematicHandlers.getSchematicUploadUrl
       Policies:
       - S3WritePolicy:
@@ -721,7 +721,7 @@ Resources:
   GetCommentsBySchematicFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/commentHandlers.getCommentsBySchematic
       Policies:
       - DynamoDBReadPolicy:
@@ -740,7 +740,7 @@ Resources:
   CreateCommentFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/commentHandlers.createComment
       Policies:
       - DynamoDBCrudPolicy:
@@ -757,7 +757,7 @@ Resources:
   UpdateCommentFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/commentHandlers.updateComment
       Policies:
       - DynamoDBCrudPolicy:
@@ -774,7 +774,7 @@ Resources:
   DeleteCommentFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/commentHandlers.deleteComment
       Policies:
       - DynamoDBCrudPolicy:
@@ -794,7 +794,7 @@ Resources:
   FollowUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/followHandlers.followUser
       Policies:
       - DynamoDBCrudPolicy:
@@ -811,7 +811,7 @@ Resources:
   UnfollowUserFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/followHandlers.unfollowUser
       Policies:
       - DynamoDBCrudPolicy:
@@ -828,7 +828,7 @@ Resources:
   GetUserFollowersFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/followHandlers.getUserFollowers
       Policies:
       - DynamoDBReadPolicy:
@@ -845,7 +845,7 @@ Resources:
   GetUserFollowingFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/followHandlers.getUserFollowing
       Policies:
       - DynamoDBReadPolicy:
@@ -865,7 +865,7 @@ Resources:
   GetUserNotificationsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/notificationHandlers.getUserNotifications
       Policies:
       - DynamoDBReadPolicy:
@@ -882,7 +882,7 @@ Resources:
   MarkNotificationReadFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/notificationHandlers.markNotificationRead
       Policies:
       - DynamoDBCrudPolicy:
@@ -899,7 +899,7 @@ Resources:
   MarkAllNotificationsReadFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/notificationHandlers.markAllNotificationsRead
       Policies:
       - DynamoDBCrudPolicy:
@@ -919,7 +919,7 @@ Resources:
   HealthCheckFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/healthHandler.health
       Events:
         HealthCheck:
@@ -937,7 +937,7 @@ Resources:
   CognitoPostConfirmationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/cognitoTriggers.postConfirmation
       Environment:
         Variables:
@@ -951,7 +951,7 @@ Resources:
   CognitoPreSignUpFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/cognitoTriggers.preSignUp
       Environment:
         Variables:
@@ -966,13 +966,13 @@ Resources:
   CognitoCustomMessageFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/cognitoTriggers.customMessage
 
   CognitoPreTokenGenerationFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ./
+      CodeUri: ./dist/
       Handler: handlers/cognitoTriggers.preTokenGeneration
 
   # Cognito Lambda Permissions
