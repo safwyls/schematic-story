@@ -105,69 +105,13 @@ Resources:
           # Intelligent Tiering for cost optimization
           - Id: IntelligentTiering
             Status: Enabled
-            Filter:
-              Prefix: gallery/
+            Prefix: gallery/
             Transitions:
               - TransitionInDays: 30
                 StorageClass: STANDARD_IA
               - TransitionInDays: 90
                 StorageClass: GLACIER
 
-#==================================================================================================
-# S3 BUCKET NOTIFICATIONS
-#==================================================================================================
-  SchematicsBucketNotification:
-    Type: AWS::S3::BucketNotification
-    Properties:
-      Bucket: !Ref SchematicsBucket
-      LambdaConfigurations:
-        - Event: s3:ObjectCreated:*
-          Function: !GetAtt ProcessSchematicUploadFunction.Arn
-          Filter:
-            S3Key:
-              Rules:
-                - Name: prefix
-                  Value: schematics/
-                - Name: suffix
-                  Value: .json
-    DependsOn:
-      - ProcessSchematicUploadPermission
-
-  ImagesBucketNotification:
-    Type: AWS::S3::BucketNotification
-    Properties:
-      Bucket: !Ref ImagesBucket
-      LambdaConfigurations:
-        - Event: s3:ObjectCreated:*
-          Function: !GetAtt ProcessImageUploadFunction.Arn
-          Filter:
-            S3Key:
-              Rules:
-                - Name: prefix
-                  Value: avatars/
-        - Event: s3:ObjectCreated:*
-          Function: !GetAtt ProcessImageUploadFunction.Arn
-          Filter:
-            S3Key:
-              Rules:
-                - Name: prefix
-                  Value: covers/
-        - Event: s3:ObjectCreated:*
-          Function: !GetAtt ProcessImageUploadFunction.Arn
-          Filter:
-            S3Key:
-              Rules:
-                - Name: prefix
-                  Value: gallery/
-        - Event: s3:ObjectCreated:*
-          Function: !GetAtt ProcessImageUploadFunction.Arn
-          Filter:
-            S3Key:
-              Rules:
-                - Name: prefix
-                  Value: thumbnails/
-    DependsOn:
-      - ProcessImageUploadPermission
 
 #==================================================================================================
 # CLOUDFRONT DISTRIBUTIONS
@@ -248,7 +192,7 @@ Resources:
             Principal:
               AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${SchematicsCloudFrontOriginAccessIdentity}"
             Action: s3:GetObject
-            Resource: !Sub "${SchematicsBucket}/*"
+            Resource: !Sub "${SchematicsBucket.Arn}/*"
 
   ImagesBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -261,7 +205,7 @@ Resources:
             Principal:
               AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${ImagesCloudFrontOriginAccessIdentity}"
             Action: s3:GetObject
-            Resource: !Sub "${ImagesBucket}/*"
+            Resource: !Sub "${ImagesBucket.Arn}/*"
 
 #==================================================================================================
 # REST API
@@ -357,6 +301,22 @@ Resources:
         CertificateArn: arn:aws:acm:us-east-1:868651351479:certificate/8052dcf4-d13e-44eb-a5c8-6344c18d72d3
 
 #==================================================================================================
+# LAMBDA LAYERS
+#==================================================================================================
+  SharpLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub ${AWS::StackName}-sharp-layer
+      Description: Sharp image processing library for Lambda
+      ContentUri: layers/sharp-layer/
+      CompatibleRuntimes:
+        - nodejs18.x
+        - nodejs20.x
+        - nodejs22.x
+      CompatibleArchitectures:
+        - x86_64
+
+#==================================================================================================
 # IMAGE UPLOAD FUNCTIONS
 #==================================================================================================
   GetImageUploadUrlFunction:
@@ -401,7 +361,7 @@ Resources:
       Timeout: 60
       MemorySize: 1024
       Layers:
-        - arn:aws:lambda:us-east-2:175033217214:layer:sharp:4
+        - !Ref SharpLayer
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref S3ImageBucketName
@@ -534,7 +494,7 @@ Resources:
       FunctionName: !GetAtt ProcessSchematicUploadFunction.Arn
       Principal: s3.amazonaws.com
       Action: lambda:InvokeFunction
-      SourceArn: !Sub "${SchematicsBucket}/*"
+      SourceArn: !Sub "${SchematicsBucket.Arn}/*"
 
   ProcessImageUploadPermission:
     Type: AWS::Lambda::Permission
@@ -542,7 +502,7 @@ Resources:
       FunctionName: !GetAtt ProcessImageUploadFunction.Arn
       Principal: s3.amazonaws.com
       Action: lambda:InvokeFunction
-      SourceArn: !Sub "${ImagesBucket}/*"
+      SourceArn: !Sub "${ImagesBucket.Arn}/*"
 
 #==================================================================================================
 # EXISTING USER ENDPOINTS
