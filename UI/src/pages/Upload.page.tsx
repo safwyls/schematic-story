@@ -1,7 +1,7 @@
 import DescriptionBlockNote from "@/components/Blocknote/DescriptionBlockNote";
 import { CardsCarousel, ImageCard } from "@/components/Carousel/CardsCarousel";
 import { ImageUpload, UploadedImage } from "@/components/ImageUpload/ImageUpload";
-import { AppUser, Vec3d } from "@/types/common";
+import { ShortUser, Vec3d } from "@/types/common";
 import { BlockNoteView } from "@blocknote/mantine";
 import { Badge, Button, Card, Container, FileInput, Grid, GridCol, Group, Image, Paper, Stack, TagsInput, TextInput, Title } from "@mantine/core";
 import { useForm } from "@mantine/form";
@@ -128,15 +128,6 @@ export function UploadPage() {
                                         <Badge>Z: {dimensions.z}</Badge>
                                         <Badge>Y: {dimensions.y}</Badge>
                                     </Group>
-                                    <FileInput
-                                        clearable
-                                        multiple
-                                        accept="image/png, image/jpeg"
-                                        label="Images"
-                                        description="(.png, .jpeg)"
-                                        onChange={handleImageUpload}
-                                    />                              
-                                    { imageList.length > 0 ? <CardsCarousel cards={imageList} /> : <></> }
                                     <ImageUpload maxImages={10} onUploadSuccess={onImageUploadSuccess} />
                                     <DescriptionBlockNote label="Description" editMode={true} />
                                 </Stack>

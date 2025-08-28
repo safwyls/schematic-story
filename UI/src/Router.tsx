@@ -9,6 +9,8 @@ import { HeaderMegaMenu } from './components/Header/HeaderMegaMenu';
 import { ScrollToTop } from './components/Common/ScrollToTop';
 import { AccountPage } from './pages/Account.page';
 import { UploadPage } from './pages/Upload.page';
+import { ProfilePage } from './pages/Profile.page';
+import { SwaggerPage } from './pages/Swagger.page';
 
 function ScrollToHashElement() {
   const location = useLocation();
@@ -46,6 +48,8 @@ export const router = createBrowserRouter([
       { path: '/schematic/:id', element: <SchematicDetailsPage /> },
       { path: '/account', element: <AccountPage />},      
       { path: '/upload', element: <UploadPage />},
+      { path: '/profile/:username/:tab?', element: <ProfilePage />},
+      { path: '/swagger', element: <SwaggerPage />},
       { path: '*', element: <NotFoundPage /> }
     ]
   }

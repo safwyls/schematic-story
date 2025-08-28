@@ -1,14 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Dropzone, FileWithPath, IMAGE_MIME_TYPE } from '@mantine/dropzone';
-import { Button, Group, Stack, Progress, Alert, Image, SimpleGrid, ActionIcon, Text } from '@mantine/core';
+import { Button, Group, Stack, Progress, Alert, Image, SimpleGrid, ActionIcon, Text, Paper } from '@mantine/core';
 import { IconUpload, IconX, IconPhoto, IconTrash } from '@tabler/icons-react';
+import { useAuthStore } from '@/store/AuthStore';
+import { getApiUrl } from '@/modules/api';
 
 interface ImageUploadProps {
   schematicId?: string; // For associating images with schematics
   onUploadSuccess: (images: UploadedImage[]) => void;
   maxImages?: number;
-  userId?: string;
-  authToken?: string;
 }
 
 export interface UploadedImage {
@@ -27,9 +27,17 @@ interface ImageUploadProgress {
   error?: string;
 }
 
-export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10, userId, authToken }: ImageUploadProps) {
+export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10 }: ImageUploadProps) {
+  const { getAccessToken } = useAuthStore();
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [uploads, setUploads] = useState<ImageUploadProgress[]>([]);
   const [previewImages, setPreviewImages] = useState<UploadedImage[]>([]);
+
+  useEffect(() => {
+    getAccessToken().then((token) => {
+      setAccessToken(token);
+    });
+  }, [])
 
   const handleDrop = useCallback((files: FileWithPath[]) => {
     const validFiles = files.filter(file => {
@@ -60,25 +68,50 @@ export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10, user
 
   const uploadImage = async (upload: ImageUploadProgress) => {
     try {
+      // Get fresh token when needed
+      const token = accessToken || await getAccessToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      console.log('Token length:', token.length);
+      console.log('Token starts with:', token.substring(0, 20) + '...');
+      
+      const requestBody = {
+        fileName: upload.file.name,
+        fileSize: upload.file.size,
+        contentType: upload.file.type,
+        schematicId, // Optional association
+        imageType: schematicId ? 'gallery' : 'avatar', // Determine type
+        generateThumbnail: true
+      };
+      
+      console.log('Request body:', requestBody);
+
       // Step 1: Request upload URL
-      const uploadResponse = await fetch('https://api.schematicstory.com/images/upload-url', {
+      const uploadResponse = await fetch(getApiUrl('/images/upload-url'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          fileName: upload.file.name,
-          fileSize: upload.file.size,
-          contentType: upload.file.type,
-          schematicId, // Optional association
-          imageType: schematicId ? 'gallery' : 'avatar', // Determine type
-          generateThumbnail: true
-        })
+        body: JSON.stringify(requestBody)
       });
 
+      console.log('Upload response status:', uploadResponse.status);
+      console.log('Upload response headers:', Object.fromEntries(uploadResponse.headers.entries()));
+
       if (!uploadResponse.ok) {
-        throw new Error('Failed to get upload URL');
+        const errorText = await uploadResponse.text();
+        console.log('Error response body:', errorText);
+        
+        if (uploadResponse.status === 502) {
+          throw new Error('API server is currently unavailable (502). Please try again later.');
+        } else if (uploadResponse.status === 503) {
+          throw new Error('API server is temporarily unavailable (503). Please try again later.');
+        } else {
+          throw new Error(`Failed to get upload URL: ${uploadResponse.status} - ${errorText}`);
+        }
       }
 
       const { uploadUrl, imageId, fields } = await uploadResponse.json();
@@ -104,11 +137,11 @@ export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10, user
       updateUploadProgress(upload, 70, 'processing', imageId);
 
       // Step 3: Confirm upload and wait for processing
-      const confirmResponse = await fetch(`https://api.schematicstory.com/images/${imageId}/confirm-upload`, {
+      const confirmResponse = await fetch(getApiUrl(`/images/${imageId}/confirm-upload`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
+          'Authorization': `Bearer ${token}`
         }
       });
 
@@ -157,81 +190,83 @@ export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10, user
   };
 
   return (
-    <Stack>
-      {/* Dropzone */}
-      <Dropzone
-        onDrop={handleDrop}
-        accept={IMAGE_MIME_TYPE}
-        maxSize={10 * 1024 * 1024} // 10MB
-        multiple={true}
-        disabled={uploads.some(u => u.status === 'uploading')}
-      >
-        <Group justify="center" gap="xl" style={{ pointerEvents: 'none' }}>
-          <IconPhoto size={50} stroke={1.5} />
-          <div>
-            <Text size="xl" inline>
-              Drag images here or click to select
-            </Text>
-            <Text size="sm" color="dimmed" inline mt={7}>
-              Up to {maxImages} images, max 10MB each (JPG, PNG, WebP)
-            </Text>
-          </div>
-        </Group>
-      </Dropzone>
-
-      {/* Upload Progress */}
-      {uploads.length > 0 && (
-        <Stack gap="xs">
-          {uploads.map((upload, index) => (
-            <div key={index}>
-              <Group justify="space-between">
-                <Text size="sm" truncate style={{ maxWidth: 200 }}>
-                  {upload.file.name}
-                </Text>
-                <Text size="sm" color={upload.status === 'error' ? 'red' : 'blue'}>
-                  {upload.status}
-                </Text>
-              </Group>
-              <Progress value={upload.progress} color={upload.status === 'error' ? 'red' : 'blue'} />
-              {upload.error && (
-                <Alert color="red">
-                  {upload.error}
-                </Alert>
-              )}
+    <Paper>
+      <Stack>
+        {/* Dropzone */}
+        <Dropzone
+          onDrop={handleDrop}
+          accept={IMAGE_MIME_TYPE}
+          maxSize={10 * 1024 * 1024} // 10MB
+          multiple={true}
+          disabled={uploads.some(u => u.status === 'uploading')}
+        >
+          <Group justify="center" gap="xl" style={{ pointerEvents: 'none' }}>
+            <IconPhoto size={50} stroke={1.5} />
+            <div>
+              <Text size="xl" inline>
+                Drag images here or click to select
+              </Text>
+              <Text size="sm" color="dimmed" inline mt={7}>
+                Up to {maxImages} images, max 10MB each (JPG, PNG, WebP)
+              </Text>
             </div>
-          ))}
-        </Stack>
-      )}
+          </Group>
+        </Dropzone>
 
-      {/* Preview Images */}
-      {previewImages.length > 0 && (
-        <SimpleGrid cols={3} spacing="sm">
-          {previewImages.map((image) => (
-            <div key={image.id} style={{ position: 'relative' }}>
-              <Image
-                src={image.url}
-                alt={image.filename}
-                height={120}
-                fit="cover"
-                radius="md"
-              />
-              <ActionIcon
-                color="red"
-                size="sm"
-                variant="filled"
-                style={{
-                  position: 'absolute',
-                  top: 8,
-                  right: 8,
-                }}
-                onClick={() => removeImage(image.id)}
-              >
-                <IconTrash size="0.8rem" />
-              </ActionIcon>
-            </div>
-          ))}
-        </SimpleGrid>
-      )}
-    </Stack>
+        {/* Upload Progress */}
+        {uploads.length > 0 && (
+          <Stack gap="xs">
+            {uploads.map((upload, index) => (
+              <div key={index}>
+                <Group justify="space-between">
+                  <Text size="sm" truncate style={{ maxWidth: 200 }}>
+                    {upload.file.name}
+                  </Text>
+                  <Text size="sm" color={upload.status === 'error' ? 'red' : 'blue'}>
+                    {upload.status}
+                  </Text>
+                </Group>
+                <Progress value={upload.progress} color={upload.status === 'error' ? 'red' : 'blue'} />
+                {upload.error && (
+                  <Alert color="red">
+                    {upload.error}
+                  </Alert>
+                )}
+              </div>
+            ))}
+          </Stack>
+        )}
+
+        {/* Preview Images */}
+        {previewImages.length > 0 && (
+          <SimpleGrid cols={3} spacing="sm">
+            {previewImages.map((image) => (
+              <div key={image.id} style={{ position: 'relative' }}>
+                <Image
+                  src={image.url}
+                  alt={image.filename}
+                  height={120}
+                  fit="cover"
+                  radius="md"
+                />
+                <ActionIcon
+                  color="red"
+                  size="sm"
+                  variant="filled"
+                  style={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                  }}
+                  onClick={() => removeImage(image.id)}
+                >
+                  <IconTrash size="0.8rem" />
+                </ActionIcon>
+              </div>
+            ))}
+          </SimpleGrid>
+        )}
+      </Stack>
+    </Paper>
   );
 }
