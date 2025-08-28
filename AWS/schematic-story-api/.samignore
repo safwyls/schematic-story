@@ -1,0 +1,12 @@
+# Exclude Sharp from deployment package since we're using a layer
+node_modules/sharp/**
+**/node_modules/sharp/**
+
+# Other common excludes
+node_modules/.bin/**
+node_modules/@types/**
+*.test.js
+*.spec.js
+.git/**
+.gitignore
+README.md

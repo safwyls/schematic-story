@@ -3,7 +3,6 @@ import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { DynamoDBClient, PutItemCommand, QueryCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
-import sharp from 'sharp'; // For image processing
 import { APIGatewayProxyEvent, APIGatewayProxyResult, S3Event } from 'aws-lambda';
 
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
@@ -293,6 +292,8 @@ export const confirmImageUpload = async (event: APIGatewayProxyEvent): Promise<A
 
 // S3 Event handler for image processing
 export const processImageUpload = async (event: S3Event): Promise<void> => {
+  const sharp = require('sharp');
+  
   for (const record of event.Records) {
     const bucket = record.s3.bucket.name;
     const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
