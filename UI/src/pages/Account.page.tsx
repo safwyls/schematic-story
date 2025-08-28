@@ -1,21 +1,36 @@
-import { Autocomplete, Button, Card, Center, Container, Grid, Group, Modal, PasswordInput, Space, Stack, TextInput, Title, Typography } from "@mantine/core"; 
+import { Autocomplete, Button, Card, Center, Container, Grid, Group, Modal, PasswordInput, Space, Stack, TextInput, Title, Typography, Alert, LoadingOverlay } from "@mantine/core"; 
 import { useForm } from '@mantine/form';
 import dayjs from 'dayjs';
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
-import { IconKey, IconTrash } from "@tabler/icons-react";
+import { IconKey, IconTrash, IconAlertCircle, IconCheck } from "@tabler/icons-react";
 import { useDisclosure } from '@mantine/hooks';
+import { useState } from 'react';
+import { notifications } from '@mantine/notifications';
 import classes from './Account.module.css';
 import { useAuthStore } from "@/store/AuthStore";
+import { CognitoIdentityProviderClient, ChangePasswordCommand, DeleteUserCommand, GetUserCommand } from "@aws-sdk/client-cognito-identity-provider";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+// Initialize Cognito client
+const cognitoClient = new CognitoIdentityProviderClient({
+    region: import.meta.env.VITE_APP_AWS_REGION || 'us-east-2'
+});
+
 export function AccountPage() {
-    const { user } = useAuthStore();
-    const [visible, { toggle }] = useDisclosure(false);
+    const { user, signOut, getAccessToken } = useAuthStore();
+    const [visible, { toggle }] = useDisclosure(false);    
+    const [delVisible, { toggle: toggleDel }] = useDisclosure(false);
     const [delOpened, { open: delOpen, close: delClose }] = useDisclosure(false);
     const [pwOpened, { open: pwOpen, close: pwClose }] = useDisclosure(false);
+    
+    // Loading states
+    const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+    const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+
     const form = useForm({
         mode: 'uncontrolled',
         initialValues: {
@@ -29,60 +44,312 @@ export function AccountPage() {
         },
     });
 
-    const deleteUserAccount = () => {
-        alert("account deleted");
-        close();
-    }
+    const passwordForm = useForm({
+        mode: 'uncontrolled',
+        initialValues: {
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: '',
+        },
+        validate: {
+            currentPassword: (value) => value.length < 1 ? 'Current password is required' : null,
+            newPassword: (value) => {
+                if (value.length < 8) return 'Password must be at least 8 characters';
+                if (!/(?=.*[a-z])/.test(value)) return 'Password must contain at least one lowercase letter';
+                if (!/(?=.*[A-Z])/.test(value)) return 'Password must contain at least one uppercase letter';
+                if (!/(?=.*\d)/.test(value)) return 'Password must contain at least one number';
+                if (!/(?=.*[@$!%*?&])/.test(value)) return 'Password must contain at least one special character';
+                return null;
+            },
+            confirmPassword: (value, values) => 
+                value !== values.newPassword ? 'Passwords do not match' : null,
+        },
+    });
 
-    const handleUserUpdate = (values: any) => {
-        console.log(values);
-    }
+    const deleteForm = useForm({
+        mode: 'uncontrolled',
+        initialValues: {
+            password: '',
+        },
+        validate: {
+            password: (value) => value.length < 1 ? 'Password is required' : null,
+        },
+    });
 
-    const handlePassUpdate = (values: any) => {
-        // call cognito function to update password here
-    }
+    const deleteUserAccount = async (values: { password: string }) => {
+        setIsDeletingAccount(true);
+        
+        try {
+            const accessToken = await getAccessToken();
+            if (!accessToken) {
+                throw new Error('No access token available');
+            }
+
+            // First verify the user by trying to get user info with current session
+            const getUserCommand = new GetUserCommand({
+                AccessToken: accessToken
+            });
+            
+            await cognitoClient.send(getUserCommand);
+
+            // If verification successful, proceed with deletion
+            const deleteCommand = new DeleteUserCommand({
+                AccessToken: accessToken
+            });
+
+            await cognitoClient.send(deleteCommand);
+
+            notifications.show({
+                title: 'Account Deleted',
+                message: 'Your account has been successfully deleted.',
+                color: 'green',
+                icon: <IconCheck size="1rem" />,
+            });
+
+            // Sign out and redirect
+            signOut();
+            
+        } catch (error: any) {
+            console.error('Delete account error:', error);
+            
+            let errorMessage = 'Failed to delete account. Please try again.';
+            
+            if (error.name === 'NotAuthorizedException') {
+                errorMessage = 'Invalid password. Please check your password and try again.';
+            } else if (error.name === 'UserNotFoundException') {
+                errorMessage = 'User not found. Please try logging in again.';
+            } else if (error.name === 'InvalidParameterException') {
+                errorMessage = 'Invalid request. Please try logging in again.';
+            }
+
+            notifications.show({
+                title: 'Delete Failed',
+                message: errorMessage,
+                color: 'red',
+                icon: <IconAlertCircle size="1rem" />,
+            });
+        } finally {
+            setIsDeletingAccount(false);
+        }
+    };
+
+    const handleUserUpdate = async (values: any) => {
+        setIsUpdatingProfile(true);
+        
+        try {
+            // Here you would typically call your API to update user profile
+            // Since Cognito user attributes updates require admin privileges,
+            // you'd need to call your backend API
+            
+            const response = await fetch('/api/users/update-profile', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${await getAccessToken()}`,
+                },
+                body: JSON.stringify({
+                    preferred_username: values.userName,
+                    timezone: values.tz,
+                    // email updates in Cognito require verification
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update profile');
+            }
+
+            notifications.show({
+                title: 'Profile Updated',
+                message: 'Your profile has been successfully updated.',
+                color: 'green',
+                icon: <IconCheck size="1rem" />,
+            });
+
+        } catch (error) {
+            console.error('Update profile error:', error);
+            notifications.show({
+                title: 'Update Failed',
+                message: 'Failed to update profile. Please try again.',
+                color: 'red',
+                icon: <IconAlertCircle size="1rem" />,
+            });
+        } finally {
+            setIsUpdatingProfile(false);
+        }
+    };
+
+    const handlePassUpdate = async (values: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
+        setIsUpdatingPassword(true);
+        
+        try {
+            const accessToken = await getAccessToken();
+            if (!accessToken) {
+                throw new Error('No access token available');
+            }
+
+            const changePasswordCommand = new ChangePasswordCommand({
+                AccessToken: accessToken,
+                PreviousPassword: values.currentPassword,
+                ProposedPassword: values.newPassword,
+            });
+
+            await cognitoClient.send(changePasswordCommand);
+
+            notifications.show({
+                title: 'Password Changed',
+                message: 'Your password has been successfully updated.',
+                color: 'green',
+                icon: <IconCheck size="1rem" />,
+            });
+
+            passwordForm.reset();
+            pwClose();
+
+        } catch (error: any) {
+            console.error('Change password error:', error);
+            
+            let errorMessage = 'Failed to change password. Please try again.';
+            
+            if (error.name === 'NotAuthorizedException') {
+                errorMessage = 'Current password is incorrect. Please try again.';
+            } else if (error.name === 'InvalidPasswordException') {
+                errorMessage = 'New password does not meet security requirements.';
+            } else if (error.name === 'LimitExceededException') {
+                errorMessage = 'Too many attempts. Please try again later.';
+            }
+
+            notifications.show({
+                title: 'Password Change Failed',
+                message: errorMessage,
+                color: 'red',
+                icon: <IconAlertCircle size="1rem" />,
+            });
+        } finally {
+            setIsUpdatingPassword(false);
+        }
+    };
 
     return (
         <Container>            
             <Modal opened={delOpened} onClose={delClose} title="Account Deletion">
-                <Stack align="center">
-                <Typography>
-                    Are you sure you want to delete your account? 
-                    <Space />
-                    This is cannot be undone.
-                </Typography>
-                    <Group>
-                        <Button onClick={deleteUserAccount} color="red">Delete</Button>
-                        <Button onClick={delClose}>Cancel</Button>
-                    </Group>
-                </Stack>
+                <LoadingOverlay visible={isDeletingAccount} />
+                <form onSubmit={deleteForm.onSubmit(deleteUserAccount)}>
+                    <Stack align="center">
+                        <Alert
+                            icon={<IconAlertCircle size="1rem" />}
+                            title="Warning"
+                            color="red"
+                            variant="light"
+                        >
+                            This action cannot be undone. All your data will be permanently deleted.
+                        </Alert>
+                        
+                        <Typography ta="center">
+                            Are you sure you want to delete your account? 
+                            <Space />
+                            Please enter your password to confirm.
+                        </Typography>
+                        
+                        <PasswordInput
+                            withAsterisk
+                            miw={250}
+                            mx="auto"
+                            label="Current Password"
+                            placeholder="Enter your password"
+                            visible={delVisible}
+                            onVisibilityChange={toggleDel}
+                            key={deleteForm.key('password')}
+                            {...deleteForm.getInputProps('password')}
+                        />
+                        
+                        <Group>
+                            <Button 
+                                type="submit" 
+                                color="red" 
+                                loading={isDeletingAccount}
+                                disabled={isDeletingAccount}
+                            >
+                                Delete Account
+                            </Button>
+                            <Button 
+                                onClick={delClose}
+                                variant="light"
+                                disabled={isDeletingAccount}
+                            >
+                                Cancel
+                            </Button>
+                        </Group>
+                    </Stack>
+                </form>
             </Modal>
-            <Modal opened={pwOpened} onClose={pwClose} title="Change Password">
-                    <form onSubmit={form.onSubmit(handlePassUpdate)}>
-                        <Stack align="center">
-                            <PasswordInput
-                                withAsterisk
-                                miw={200}
-                                mx="auto"
-                                label="Password"
-                                visible={visible}
-                                onVisibilityChange={toggle}
-                            />
-                            <PasswordInput
-                                withAsterisk
-                                miw={200}
-                                mx="auto"
-                                label="Confirm password"
-                                visible={visible}
-                                onVisibilityChange={toggle}
-                            />   
-                            <Group>
-                                <Button type="submit">Save</Button>
-                                <Button onClick={pwClose} color="red">Cancel</Button>
-                            </Group> 
-                        </Stack>     
-                    </form>
+
+            <Modal opened={pwOpened} onClose={pwClose} title="Change Password" size="md">
+                <LoadingOverlay visible={isUpdatingPassword} />
+                <form onSubmit={passwordForm.onSubmit(handlePassUpdate)}>
+                    <Stack>
+                        <Alert
+                            icon={<IconAlertCircle size="1rem" />}
+                            title="Password Requirements"
+                            color="blue"
+                            variant="light"
+                        >
+                            Password must be at least 8 characters and contain:
+                            <ul>
+                                <li>At least one lowercase letter</li>
+                                <li>At least one uppercase letter</li>
+                                <li>At least one number</li>
+                                <li>At least one special character (@$!%*?&)</li>
+                            </ul>
+                        </Alert>
+
+                        <PasswordInput
+                            withAsterisk
+                            label="Current Password"
+                            placeholder="Enter current password"
+                            key={passwordForm.key('currentPassword')}
+                            {...passwordForm.getInputProps('currentPassword')}
+                        />
+                        
+                        <PasswordInput
+                            withAsterisk
+                            label="New Password"
+                            placeholder="Enter new password"
+                            visible={visible}
+                            onVisibilityChange={toggle}
+                            key={passwordForm.key('newPassword')}
+                            {...passwordForm.getInputProps('newPassword')}
+                        />
+                        
+                        <PasswordInput
+                            withAsterisk
+                            label="Confirm New Password"
+                            placeholder="Confirm new password"
+                            visible={visible}
+                            onVisibilityChange={toggle}
+                            key={passwordForm.key('confirmPassword')}
+                            {...passwordForm.getInputProps('confirmPassword')}
+                        />   
+                        
+                        <Group justify="flex-end" mt="md">
+                            <Button 
+                                onClick={pwClose} 
+                                variant="light"
+                                disabled={isUpdatingPassword}
+                            >
+                                Cancel
+                            </Button>
+                            <Button 
+                                type="submit"
+                                loading={isUpdatingPassword}
+                                disabled={isUpdatingPassword}
+                            >
+                                Change Password
+                            </Button>
+                        </Group> 
+                    </Stack>     
+                </form>
             </Modal>
+
             <Grid grow>            
                 <Grid.Col span={12}>
                     <Title>Account Settings</Title>
@@ -90,6 +357,7 @@ export function AccountPage() {
                 
                 <Grid.Col span={12}>
                     <Card>
+                        <LoadingOverlay visible={isUpdatingProfile} />
                         <Title order={3} pb="1em">User Details</Title>
                         <form onSubmit={form.onSubmit(handleUserUpdate)}>
                             <TextInput
@@ -106,6 +374,8 @@ export function AccountPage() {
                                 placeholder="your@email.com"
                                 key={form.key('email')}
                                 {...form.getInputProps('email')}
+                                disabled
+                                description="Email changes require verification and must be done through account recovery"
                             />
 
                             <Autocomplete
@@ -117,19 +387,37 @@ export function AccountPage() {
                             
                             <Group justify="space-between" mt="md">
                                 <Button onClick={pwOpen}>
-                                    <IconKey/> Change Password
+                                    <IconKey style={{ marginRight: '8px' }} />
+                                    Change Password
                                 </Button>
-                                <Button type="submit">Save Changes</Button>
+                                <Button 
+                                    type="submit"
+                                    loading={isUpdatingProfile}
+                                    disabled={isUpdatingProfile}
+                                >
+                                    Save Changes
+                                </Button>
                             </Group>
                         </form>
                     </Card>
                 </Grid.Col>
+                
                 <Grid.Col span={12}>
                     <Card>
                         <Title className={classes.danger} order={3} pb="1em">Danger Zone</Title>
+                        <Alert
+                            icon={<IconAlertCircle size="1rem" />}
+                            title="Account Deletion"
+                            color="red"
+                            variant="light"
+                            mb="md"
+                        >
+                            Once you delete your account, there is no going back. All your schematics, 
+                            comments, and profile data will be permanently deleted.
+                        </Alert>
                         <Center>
                             <Button color="red" onClick={delOpen}> 
-                                <IconTrash/>
+                                <IconTrash style={{ marginRight: '8px' }} />
                                 Delete User Account
                             </Button>
                         </Center>

@@ -133,64 +133,67 @@ export function HeaderMegaMenu() {
   return (
     <Box pb={60} style={{position: 'sticky', top: 0, zIndex: 1}}>
       <header className={classes.header}>
-        <Group justify="space-between" h="100%">
-          <Group gap={0}>          
-          <a href="/"><SchematicStoryLogo className={classes.logo} /></a>
-          <Group h="100%" gap={0} visibleFrom="md">
-            <a href="/" className={classes.link}>
-              Home
-            </a>
-            <HoverCard width={600} position="bottom" radius="md" shadow="md" withinPortal>
-              <HoverCard.Target>
-                <a href="#" className={classes.link}>
-                  <Center inline>
-                    <Box component="span" mr={5}>
-                      Schematics
-                    </Box>
-                    <IconChevronDown size={16} color={theme.colors.blue[6]} />
-                  </Center>
-                </a>
-              </HoverCard.Target>
+        <Group justify="space-between">
+          <Group gap={0}>
+            <a href="/"><SchematicStoryLogo className={classes.logo} /></a>
+            <Group gap={0} h={60} visibleFrom="md">
+              <a href="/" className={classes.link}>
+                Home
+              </a>
+              <HoverCard width={600} position="bottom" radius="md" shadow="md" withinPortal>
+                <HoverCard.Target>
+                  <a href="#" className={classes.link}>
+                    <Center inline>
+                      <Box component="span" mr={5}>
+                        Schematics
+                      </Box>
+                      <IconChevronDown size={16} color={theme.colors.blue[6]} />
+                    </Center>
+                  </a>
+                </HoverCard.Target>
 
-              <HoverCard.Dropdown style={{ overflow: 'hidden' }}>
-                <Group justify="space-between" px="md">
-                  <Text fw={500}>Schematics</Text>
-                  <Anchor href="/schematics" fz="xs">
-                    View all
-                  </Anchor>
-                </Group>
-
-                <Divider my="sm" />
-
-                <SimpleGrid cols={2} spacing={0}>
-                  {links}
-                </SimpleGrid>
-
-                <div className={classes.dropdownFooter}>
-                  <Group justify="space-between">
-                    <div>
-                      <Text fw={500} fz="sm">
-                        Get started
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        Upload your creation!
-                      </Text>
-                    </div>
-                    <Button variant="default" onClick={() => navigate('/upload')}>Upload</Button>
+                <HoverCard.Dropdown style={{ overflow: 'hidden' }}>
+                  <Group justify="space-between" px="md">
+                    <Text fw={500}>Schematics</Text>
+                    <Anchor href="/schematics" fz="xs">
+                      View all
+                    </Anchor>
                   </Group>
-                </div>
-              </HoverCard.Dropdown>
-            </HoverCard>
-            <Anchor href="https://mods.vintagestory.at" target="_blank" className={classes.link}>
-              ModDB
-            </Anchor>
-            <Anchor href="/#faq" className={classes.link}>
-              FAQ
-            </Anchor>
-            <Link to="/#contact-us" className={classes.link}>
-              About
-            </Link>
-          </Group>
+
+                  <Divider my="sm" />
+
+                  <SimpleGrid cols={2} spacing={0}>
+                    {links}
+                  </SimpleGrid>
+
+                  <div className={classes.dropdownFooter}>
+                    <Group justify="space-between">
+                      <div>
+                        <Text fw={500} fz="sm">
+                          Get started
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          Upload your creation!
+                        </Text>
+                      </div>
+                      <Button variant="default" onClick={() => navigate('/upload')}>Upload</Button>
+                    </Group>
+                  </div>
+                </HoverCard.Dropdown>
+              </HoverCard>
+              <Anchor href="/swagger" className={classes.link}>
+                API
+              </Anchor>
+              <Anchor href="https://mods.vintagestory.at" target="_blank" className={classes.link}>
+                ModDB
+              </Anchor>
+              <Anchor href="/#faq" className={classes.link}>
+                FAQ
+              </Anchor>
+              <Link to="/#contact-us" className={classes.link}>
+                About
+              </Link>
+            </Group>
           </Group>
 
           <Group visibleFrom="md">
@@ -220,17 +223,19 @@ export function HeaderMegaMenu() {
                   </Menu.Target>
                   <Menu.Dropdown>
                     <Menu.Item
-                      onClick={test}
+                      onClick={() => navigate('/profile/' + user.preferred_username + '/schematics')}
                       leftSection={<IconHeart size={16} color={theme.colors.red[6]} stroke={1.5} />}
                     >
                       Followed schematics
                     </Menu.Item>                
                     <Menu.Item
+                      onClick={() => navigate('/profile/' + user.preferred_username + '/users')}
                       leftSection={<IconUser size={16} color={theme.colors.blue[6]} stroke={1.5} />}
                     >
                       Followed seraphs
                     </Menu.Item>
                     <Menu.Item
+                      onClick={() => navigate('/profile/' + user.preferred_username + '/comments')}
                       leftSection={<IconMessage size={16} color={theme.colors.yellow[6]} stroke={1.5} />}
                     >
                       Your comments
