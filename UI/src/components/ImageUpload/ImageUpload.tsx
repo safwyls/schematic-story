@@ -190,7 +190,7 @@ export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10 }: Im
   };
 
   return (
-    <Paper>
+    <Paper shadow="none" radius="sm">
       <Stack>
         {/* Dropzone */}
         <Dropzone
