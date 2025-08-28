@@ -1,6 +1,6 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
-import { DynamoDBClient, PutItemCommand, QueryCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient, PutItemCommand, QueryCommand, UpdateItemCommand, DeleteItemCommand } from '@aws-sdk/client-dynamodb';
 import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 import { APIGatewayProxyEvent, APIGatewayProxyResult, S3Event } from 'aws-lambda';
@@ -429,4 +429,148 @@ const streamToBuffer = async (stream: NodeJS.ReadableStream): Promise<Buffer> =>
 const extractImageIdFromKey = (key: string): string | null => {
   const match = key.match(/(img-[a-f0-9-]+)/);
   return match ? match[1] : null;
+};
+
+// Delete image handler
+export const deleteImage = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const imageId = event.pathParameters?.imageId;
+    const userId = event.requestContext.authorizer?.claims?.sub;
+
+    if (!imageId) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Image ID is required' })
+      };
+    }
+
+    if (!userId) {
+      return {
+        statusCode: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Unauthorized - User ID not found' })
+      };
+    }
+
+    // Get image record from DynamoDB
+    const getItemResponse = await dynamoClient.send(new QueryCommand({
+      TableName: process.env.TABLE_NAME!,
+      KeyConditionExpression: 'PK = :pk AND SK = :sk',
+      ExpressionAttributeValues: marshall({
+        ':pk': `IMAGE#${imageId}`,
+        ':sk': 'METADATA'
+      })
+    }));
+
+    if (!getItemResponse.Items || getItemResponse.Items.length === 0) {
+      return {
+        statusCode: 404,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Image not found' })
+      };
+    }
+
+    const imageRecord = unmarshall(getItemResponse.Items[0]);
+
+    // Verify user owns the image
+    if (imageRecord.UploaderId !== userId) {
+      return {
+        statusCode: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Unauthorized - You can only delete your own images' })
+      };
+    }
+
+    // Delete from S3 (original, optimized, and thumbnail)
+    const deletePromises = [];
+    
+    // Delete original image
+    if (imageRecord.S3Key) {
+      deletePromises.push(
+        s3Client.send(new DeleteObjectCommand({
+          Bucket: process.env.S3_IMAGES_BUCKET_NAME!,
+          Key: imageRecord.S3Key
+        }))
+      );
+    }
+
+    // Delete optimized version if exists
+    if (imageRecord.OptimizedS3Key) {
+      deletePromises.push(
+        s3Client.send(new DeleteObjectCommand({
+          Bucket: process.env.S3_IMAGES_BUCKET_NAME!,
+          Key: imageRecord.OptimizedS3Key
+        }))
+      );
+    }
+
+    // Delete thumbnail if exists
+    if (imageRecord.ThumbnailS3Key) {
+      deletePromises.push(
+        s3Client.send(new DeleteObjectCommand({
+          Bucket: process.env.S3_IMAGES_BUCKET_NAME!,
+          Key: imageRecord.ThumbnailS3Key
+        }))
+      );
+    }
+
+    // Execute S3 deletions
+    await Promise.allSettled(deletePromises);
+
+    // Delete image record from DynamoDB
+    await dynamoClient.send(new DeleteItemCommand({
+      TableName: process.env.TABLE_NAME!,
+      Key: marshall({
+        PK: `IMAGE#${imageId}`,
+        SK: 'METADATA'
+      })
+    }));
+
+    // Delete schematic association if exists
+    if (imageRecord.SchematicId) {
+      await dynamoClient.send(new DeleteItemCommand({
+        TableName: process.env.TABLE_NAME!,
+        Key: marshall({
+          PK: `SCHEMATIC#${imageRecord.SchematicId}`,
+          SK: `IMAGE#${imageId}`
+        })
+      }));
+    }
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({
+        message: 'Image deleted successfully',
+        imageId
+      })
+    };
+
+  } catch (error) {
+    console.error('Error deleting image:', error);
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ error: 'Failed to delete image' })
+    };
+  }
 };

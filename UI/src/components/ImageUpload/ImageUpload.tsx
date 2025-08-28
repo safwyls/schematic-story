@@ -115,10 +115,12 @@ export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10 }: Im
       }
 
       const { uploadUrl, imageId, fields } = await uploadResponse.json();
+      console.log('Got upload URL and imageId:', imageId);
 
       updateUploadProgress(upload, 20, 'uploading');
 
       // Step 2: Upload to S3 with progress tracking
+      console.log('Starting S3 upload...');
       const formData = new FormData();
       Object.entries(fields).forEach(([key, value]) => {
         formData.append(key, value as string);
@@ -130,10 +132,16 @@ export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10 }: Im
         body: formData,
       });
 
+      console.log('S3 response status:', s3Response.status);
+      console.log('S3 response headers:', Object.fromEntries(s3Response.headers.entries()));
+
       if (!s3Response.ok) {
-        throw new Error('Failed to upload to S3');
+        const s3ErrorText = await s3Response.text();
+        console.log('S3 error response:', s3ErrorText);
+        throw new Error(`Failed to upload to S3: ${s3Response.status} - ${s3ErrorText}`);
       }
 
+      console.log('S3 upload successful, updating progress to 70%');
       updateUploadProgress(upload, 70, 'processing', imageId);
 
       // Step 3: Confirm upload and wait for processing
@@ -177,16 +185,51 @@ export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10 }: Im
     imageId?: string,
     error?: string
   ) => {
-    setUploads(prev => prev.map(upload => 
-      upload === targetUpload 
-        ? { ...upload, progress, status, imageId, error }
-        : upload
-    ));
+    console.log(`Updating progress for ${targetUpload.file.name} to ${progress}%`);
+    setUploads(prev => {
+      const updated = prev.map(upload => {
+        const isMatch = upload.file.name === targetUpload.file.name && upload.file.size === targetUpload.file.size;
+        console.log(`Checking ${upload.file.name}: ${isMatch ? 'MATCH' : 'no match'}`);
+        return isMatch
+          ? { ...upload, progress, status, imageId, error }
+          : upload;
+      });
+      console.log('Updated uploads state:', updated);
+      return updated;
+    });
   };
 
-  const removeImage = (imageId: string) => {
-    setPreviewImages(prev => prev.filter(img => img.id !== imageId));
-    // TODO: Call API to delete image from S3 and DynamoDB
+  const removeImage = async (imageId: string) => {
+    try {
+      // Get fresh token
+      const token = accessToken || await getAccessToken();
+      if (!token) {
+        console.error('No authentication token available for delete');
+        return;
+      }
+
+      // Call delete API
+      const deleteResponse = await fetch(getApiUrl(`/images/${imageId}`), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!deleteResponse.ok) {
+        const errorText = await deleteResponse.text();
+        console.error('Failed to delete image:', deleteResponse.status, errorText);
+        return;
+      }
+
+      console.log('Image deleted successfully:', imageId);
+      
+      // Remove from preview images on successful delete
+      setPreviewImages(prev => prev.filter(img => img.id !== imageId));
+      
+    } catch (error) {
+      console.error('Error deleting image:', error);
+    }
   };
 
   return (
