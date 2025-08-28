@@ -44,6 +44,10 @@ Parameters:
     Type: String
     Default: arn:aws:acm:us-east-1:868651351479:certificate/bc0a6d16-e21c-4369-babb-9ad289021e74
     Description: Certificate ARN for API Gateway
+  SharpLayerArn:
+    Type: String
+    Default: arn:aws:lambda:us-east-2:868651351479:layer:sharp:1
+    Description: ARN of the Sharp layer
   Environment:
     Type: String
     Default: development
@@ -305,19 +309,24 @@ Resources:
 #==================================================================================================
 # LAMBDA LAYERS
 #==================================================================================================
+  SharpLambdaLayer:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:987481058235:applications/nodejs-sharp-lambda-layer
+        SemanticVersion: 0.34.1
+      TimeoutInMinutes: 5
+
   SharpLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: !Sub ${AWS::StackName}-sharp-layer
-      Description: Sharp image processing library for Lambda
+      LayerName: sharp-layer
       ContentUri: layers/sharp-layer/
       CompatibleRuntimes:
-        - nodejs18.x
-        - nodejs20.x
         - nodejs22.x
       CompatibleArchitectures:
         - x86_64
-
+  
   DependenciesLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
@@ -332,6 +341,27 @@ Resources:
         - x86_64
 
 #==================================================================================================
+# SHARP TEST
+#==================================================================================================
+  # Add this function to your template.yaml
+  TestSharpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist/
+      Handler: handlers/testHandlers.testSharp
+      Layers:
+        - !Ref SharpLayer  # or your Sharp layer ARN
+      Events:
+        TestSharp:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /test/sharp
+            Method: GET
+            Auth:
+              Authorizer: NONE  # No auth needed for testing
+
+#==================================================================================================
 # IMAGE UPLOAD FUNCTIONS
 #==================================================================================================
   GetImageUploadUrlFunction:
@@ -339,8 +369,6 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.getImageUploadUrl
-      Layers:
-        - !Ref SharpLayer
       Policies:
         - S3WritePolicy:
             BucketName: !Ref S3ImageBucketName
@@ -359,8 +387,6 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.confirmImageUpload
-      Layers:
-        - !Ref SharpLayer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTableName
@@ -392,8 +418,6 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.getSchematicImages
-      Layers:
-        - !Ref SharpLayer
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref DynamoDBTableName
@@ -412,8 +436,6 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.setCoverImage
-      Layers:
-        - !Ref SharpLayer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTableName
@@ -430,8 +452,6 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.deleteImage
-      Layers:
-        - !Ref SharpLayer
       Policies:
         - S3CrudPolicy:
             BucketName: !Ref S3ImageBucketName
@@ -450,8 +470,6 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.getUserAvatar
-      Layers:
-        - !Ref SharpLayer
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref DynamoDBTableName
@@ -470,8 +488,6 @@ Resources:
     Properties:
       CodeUri: ./dist/
       Handler: handlers/imageHandlers.updateUserAvatar
-      Layers:
-        - !Ref SharpLayer
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTableName

@@ -9,6 +9,6 @@ resolve_s3 = true
 s3_prefix = "schematic-story-api"
 region = "us-east-2"
 confirm_changeset = true
-capabilities = "CAPABILITY_IAM"
+capabilities = "CAPABILITY_IAM CAPABILITY_AUTO_EXPAND"
 image_repositories = []
 parameter_overrides = "DynamoDBTableName=\"SchematicStoryTable\" S3BucketName=\"schematic-story-files\" S3ImageBucketName=\"schematic-story-images\" ApiCustomDomainName=\"api.schematicstory.com\" ApiCertificateArn=\"arn:aws:acm:us-east-1:868651351479:certificate/bc0a6d16-e21c-4369-babb-9ad289021e74\" Environment=\"development\""
