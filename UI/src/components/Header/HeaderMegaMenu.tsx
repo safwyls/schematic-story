@@ -92,7 +92,7 @@ export function HeaderMegaMenu() {
   const signOutRedirect = async () => {    
     // Remove the user from local session
     await auth.removeUser();    
-    const clientId = "27ickjtjhr7lnn0g28u07kf1m5";
+    const clientId = "42dh0svgklvi3g1oe9l24ttef";
     const logoutUri = import.meta.env.VITE_APP_REDIR;
     const cognitoDomain = "https://auth.schematicstory.com";
     window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;

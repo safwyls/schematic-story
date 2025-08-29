@@ -7,12 +7,12 @@ import { UserManager } from "oidc-client-ts";
 
 export const userManager = new UserManager({
     authority: "https://auth.schematicstory.com",
-    client_id: "27ickjtjhr7lnn0g28u07kf1m5",
+    client_id: "42dh0svgklvi3g1oe9l24ttef",
     redirect_uri: import.meta.env.VITE_APP_REDIR,
     response_type: "code",
     scope: "profile openid email",
     metadata: {
-      issuer: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_1Cg744WJj",
+      issuer: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_DvgNYK61L",
       authorization_endpoint: "https://auth.schematicstory.com/oauth2/authorize",
       token_endpoint:         "https://auth.schematicstory.com/oauth2/token",
       userinfo_endpoint:      "https://auth.schematicstory.com/oauth2/userInfo",
@@ -23,8 +23,8 @@ export const userManager = new UserManager({
 });
 
 const cognitoAuthConfig = {
-  authority: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_1Cg744WJj",
-  client_id: "27ickjtjhr7lnn0g28u07kf1m5",
+  authority: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_DvgNYK61L",
+  client_id: "42dh0svgklvi3g1oe9l24ttef",
   redirect_uri: "http://localhost:5173",
   response_type: "code",
   scope: "email openid profile",
