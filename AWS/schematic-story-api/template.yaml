@@ -229,7 +229,7 @@ Resources:
         AddDefaultAuthorizerToCorsPreflight: false
         Authorizers:
           CognitoAuth:
-            UserPoolArn: !GetAtt CognitoUserPool.Arn
+            UserPoolArn: !GetAtt SchematicStoryUserPool.Arn
             Identity:
               Header: Authorization   # expects Bearer <JWT>
 
@@ -252,7 +252,7 @@ Resources:
 #==================================================================================================
 # COGNITO AUTHENTICATION
 #==================================================================================================
-  CognitoUserPool:
+  SchematicStoryUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: !Sub ${AWS::StackName}-UserPool
@@ -270,18 +270,17 @@ Resources:
           Required: true
       UsernameAttributes:
         - email
-        - preferred_username
       LambdaConfig:
         PostConfirmation: !GetAtt CognitoPostConfirmationFunction.Arn
         PreSignUp: !GetAtt CognitoPreSignUpFunction.Arn
         CustomMessage: !GetAtt CognitoCustomMessageFunction.Arn
         PreTokenGeneration: !GetAtt CognitoPreTokenGenerationFunction.Arn
 
-  CognitoUserPoolClient:
+  SchematicStoryUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
       ClientName: !Sub ${AWS::StackName}-UserPoolClient
-      UserPoolId: !Ref CognitoUserPool
+      UserPoolId: !Ref SchematicStoryUserPool
       GenerateSecret: false
       AllowedOAuthFlowsUserPoolClient: true
       AllowedOAuthFlows:
@@ -291,19 +290,19 @@ Resources:
         - 'openid'
         - 'profile'
       CallbackURLs:
-        - 'http://localhost:3000/auth/welcome'
+        - 'http://localhost:5173/auth/welcome'
         - 'https://schematicstory.com/auth/welcome'
       LogoutURLs:
-        - 'http://localhost:3000'
+        - 'http://localhost:5173'
         - 'https://schematicstory.com'
       SupportedIdentityProviders:
         - 'COGNITO'
 
-  CognitoUserPoolDomain:
+  SchematicStoryUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
     Properties:
       Domain: auth.schematicstory.com
-      UserPoolId: !Ref CognitoUserPool
+      UserPoolId: !Ref SchematicStoryUserPool
       CustomDomainConfig:
         CertificateArn: arn:aws:acm:us-east-1:868651351479:certificate/8052dcf4-d13e-44eb-a5c8-6344c18d72d3
 
@@ -1114,7 +1113,7 @@ Resources:
       FunctionName: !GetAtt CognitoPostConfirmationFunction.Arn
       Principal: cognito-idp.amazonaws.com
       Action: lambda:InvokeFunction
-      SourceArn: !GetAtt CognitoUserPool.Arn
+      SourceArn: !GetAtt SchematicStoryUserPool.Arn
 
   CognitoPreSignUpPermission:
     Type: AWS::Lambda::Permission
@@ -1122,7 +1121,7 @@ Resources:
       FunctionName: !GetAtt CognitoPreSignUpFunction.Arn
       Principal: cognito-idp.amazonaws.com
       Action: lambda:InvokeFunction
-      SourceArn: !GetAtt CognitoUserPool.Arn
+      SourceArn: !GetAtt SchematicStoryUserPool.Arn
 
   CognitoCustomMessagePermission:
     Type: AWS::Lambda::Permission
@@ -1130,7 +1129,7 @@ Resources:
       FunctionName: !GetAtt CognitoCustomMessageFunction.Arn
       Principal: cognito-idp.amazonaws.com
       Action: lambda:InvokeFunction
-      SourceArn: !GetAtt CognitoUserPool.Arn
+      SourceArn: !GetAtt SchematicStoryUserPool.Arn
 
   CognitoPreTokenGenerationPermission:
     Type: AWS::Lambda::Permission
@@ -1138,19 +1137,19 @@ Resources:
       FunctionName: !GetAtt CognitoPreTokenGenerationFunction.Arn
       Principal: cognito-idp.amazonaws.com
       Action: lambda:InvokeFunction
-      SourceArn: !GetAtt CognitoUserPool.Arn
+      SourceArn: !GetAtt SchematicStoryUserPool.Arn
 
 Outputs:
   # Authentication Outputs
   UserPoolId:
     Description: Cognito User Pool ID
-    Value: !Ref CognitoUserPool
+    Value: !Ref SchematicStoryUserPool
     Export:
       Name: !Sub ${AWS::StackName}-UserPoolId
 
   UserPoolClientId:
     Description: Cognito User Pool Client ID
-    Value: !Ref CognitoUserPoolClient
+    Value: !Ref SchematicStoryUserPoolClient
     Export:
       Name: !Sub ${AWS::StackName}-UserPoolClientId
 
