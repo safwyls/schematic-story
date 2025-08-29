@@ -264,12 +264,13 @@ Resources:
           AttributeDataType: String
           Mutable: false
           Required: true
-        - Name: picture
+        - Name: preferred_username
           AttributeDataType: String
           Mutable: true
-          Required: false
+          Required: true
       UsernameAttributes:
         - email
+        - preferred_username
       LambdaConfig:
         PostConfirmation: !GetAtt CognitoPostConfirmationFunction.Arn
         PreSignUp: !GetAtt CognitoPreSignUpFunction.Arn
@@ -364,6 +365,58 @@ Resources:
 #==================================================================================================
 # IMAGE UPLOAD FUNCTIONS
 #==================================================================================================
+  GetStagedImageUploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist/
+      Handler: handlers/imageHandlers.getStagedImageUploadUrl
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref S3ImageBucketName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        GetStagedImageUploadUrl:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /images/staged/upload-url
+            Method: POST
+
+  ConfirmStagedImageUploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist/
+      Handler: handlers/imageHandlers.confirmStagedImageUpload
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        ConfirmStagedImageUpload:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /images/staged/{imageId}/confirm-upload
+            Method: POST
+
+  DeleteStagedImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist/
+      Handler: handlers/imageHandlers.deleteStagedImage
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref S3ImageBucketName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTableName
+      Events:
+        DeleteStagedImage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /images/staged/{imageId}
+            Method: DELETE
+
   GetImageUploadUrlFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -550,7 +603,7 @@ Resources:
       SourceArn: !Sub "${ImagesBucket.Arn}/*"
 
 #==================================================================================================
-# EXISTING USER ENDPOINTS
+# USER ENDPOINTS
 #==================================================================================================
   GetUserFunction:
     Type: AWS::Serverless::Function
@@ -608,7 +661,7 @@ Resources:
               Authorizer: NONE
 
 #==================================================================================================
-# EXISTING SCHEMATIC ENDPOINTS
+# SCHEMATIC ENDPOINTS
 #==================================================================================================
   GetSchematicFunction:
     Type: AWS::Serverless::Function
@@ -644,6 +697,40 @@ Resources:
           Properties:
             RestApiId: !Ref SchematicStoryApi
             Path: /schematics
+            Method: POST
+
+  GetSchematicUploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist/
+      Handler: handlers/schematicHandlers.getSchematicUploadUrl
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: DynamoDBTableName
+      Events:
+        GetSchematicUploadUrl:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /schematics/{schematicId}/upload-url
+            Method: GET
+
+  ConfirmSchematicUploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist/
+      Handler: handlers/schematicHandlers.confirmSchematicUpload
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: DynamoDBTableName
+      Events:
+        ConfirmSchematicUpload:
+          Type: Api
+          Properties:
+            RestApiId: !Ref SchematicStoryApi
+            Path: /schematics/{schematicId}/confirm-upload
             Method: POST
 
   UpdateSchematicFunction:
@@ -761,7 +848,7 @@ Resources:
             Method: POST
 
 #==================================================================================================
-# EXISTING COMMENT ENDPOINTS
+# COMMENT ENDPOINTS
 #==================================================================================================
   GetCommentsBySchematicFunction:
     Type: AWS::Serverless::Function
@@ -834,7 +921,7 @@ Resources:
             Method: DELETE
 
 #==================================================================================================
-# EXISTING FOLLOW ENDPOINTS
+# FOLLOW ENDPOINTS
 #==================================================================================================
   FollowUserFunction:
     Type: AWS::Serverless::Function
@@ -905,7 +992,7 @@ Resources:
             Method: GET
 
 #==================================================================================================
-# EXISTING NOTIFICATION ENDPOINTS
+# NOTIFICATION ENDPOINTS
 #==================================================================================================
   GetUserNotificationsFunction:
     Type: AWS::Serverless::Function
