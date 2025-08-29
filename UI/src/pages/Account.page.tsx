@@ -1,15 +1,17 @@
-import { Autocomplete, Button, Card, Center, Container, Grid, Group, Modal, PasswordInput, Space, Stack, TextInput, Title, Typography, Alert, LoadingOverlay } from "@mantine/core"; 
+import { Autocomplete, Button, Card, Center, Container, Grid, Group, Modal, PasswordInput, Space, Stack, TextInput, Title, Typography, Alert, LoadingOverlay, Avatar, Text, Loader } from "@mantine/core"; 
 import { useForm } from '@mantine/form';
 import dayjs from 'dayjs';
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
-import { IconKey, IconTrash, IconAlertCircle, IconCheck } from "@tabler/icons-react";
+import { IconKey, IconTrash, IconAlertCircle, IconCheck, IconUser, IconUpload } from "@tabler/icons-react";
 import { useDisclosure } from '@mantine/hooks';
 import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import classes from './Account.module.css';
 import { useAuthStore } from "@/store/AuthStore";
 import { CognitoIdentityProviderClient, ChangePasswordCommand, DeleteUserCommand, GetUserCommand } from "@aws-sdk/client-cognito-identity-provider";
+import { ImageUpload, UploadedImage } from "@/components/ImageUpload/ImageUpload";
+import { getApiUrl } from "@/modules/api";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -25,11 +27,14 @@ export function AccountPage() {
     const [delVisible, { toggle: toggleDel }] = useDisclosure(false);
     const [delOpened, { open: delOpen, close: delClose }] = useDisclosure(false);
     const [pwOpened, { open: pwOpen, close: pwClose }] = useDisclosure(false);
+    const [avatarModalOpened, { open: avatarModalOpen, close: avatarModalClose }] = useDisclosure(false);
+    const [avatarLoading, setAvatarLoading] = useState(false);
     
     // Loading states
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+    const [avatarImages, setAvatarImages] = useState<UploadedImage[]>([]);
 
     const form = useForm({
         mode: 'uncontrolled',
@@ -37,7 +42,7 @@ export function AccountPage() {
             userName: user.preferred_username,
             email: user.email,
             tz: user.timezone == '' || null ? dayjs.tz.guess() : user.timezone,
-            avatarUrl: 'https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/avatars/avatar-10.png',
+            avatarUrl: user.avatarUrl || '/src/assets/silhouette.png',
         },
         validate: {
           email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email')
@@ -133,6 +138,40 @@ export function AccountPage() {
         }
     };
 
+    const handleAvatarUploadSuccess = async (images: UploadedImage[]) => {
+        try {
+            const response = await fetch(getApiUrl('/users/update-profile'), {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${await getAccessToken()}`,
+                },
+                body: JSON.stringify({
+                    avatarUrl: images[0].url
+                }),
+            });
+
+            if (response.ok) {
+                notifications.show({
+                    title: 'Profile Avatar Updated',
+                    message: 'Your profile avatar has been successfully updated.',
+                    color: 'green',
+                    icon: <IconCheck size="1rem" />,
+                });
+            }
+            
+        } catch (error: any) {
+            notifications.show({
+                title: 'Profile Update Failed',
+                message: error.message,
+                color: 'red',
+                icon: <IconAlertCircle size="1rem" />,
+            });
+        } finally {            
+            setAvatarLoading(false);
+        }
+    };
+
     const handleUserUpdate = async (values: any) => {
         setIsUpdatingProfile(true);
         
@@ -141,7 +180,7 @@ export function AccountPage() {
             // Since Cognito user attributes updates require admin privileges,
             // you'd need to call your backend API
             
-            const response = await fetch('/api/users/update-profile', {
+            const response = await fetch(getApiUrl('/users/update-profile'), {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -350,6 +389,17 @@ export function AccountPage() {
                 </form>
             </Modal>
 
+            <Modal opened={avatarModalOpened} onClose={avatarModalClose} title="Upload Avatar">
+                <ImageUpload
+
+                    onUploadStarted={() => {setAvatarLoading(true); avatarModalClose();}}
+                    onUploadProgress={() => {setAvatarLoading(true);}}
+                    onUploadSuccess={handleAvatarUploadSuccess}
+                    maxImages={1}
+                    imageType="avatar"
+                />
+            </Modal>
+
             <Grid grow>            
                 <Grid.Col span={12}>
                     <Title>Account Settings</Title>
@@ -360,6 +410,31 @@ export function AccountPage() {
                         <LoadingOverlay visible={isUpdatingProfile} />
                         <Title order={3} pb="1em">User Details</Title>
                         <form onSubmit={form.onSubmit(handleUserUpdate)}>
+                            
+                        <Group mb="lg">
+                            <Group align="center" onClick={avatarModalOpen} style={{ cursor: 'pointer' }}>
+                                {
+                                    avatarLoading 
+                                    ?
+                                        <Loader size="md" />
+                                    
+                                    :
+                                        <Avatar 
+                                            src={form.getValues().avatarUrl || avatarImages[0]?.url} 
+                                            size={80}
+                                            radius="xl"
+                                        >
+                                            <IconUser size="2rem" />
+                                        </Avatar>
+                                }
+                                <Stack gap="xs">
+                                    <Text fw={500}>Profile Picture</Text>
+                                    <Text size="sm" c="dimmed">
+                                        Upload a new avatar image (max 10MB)
+                                    </Text>
+                                </Stack>
+                            </Group>
+                        </Group>
                             <TextInput
                                 withAsterisk
                                 label="Username"

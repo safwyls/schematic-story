@@ -1,14 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Dropzone, FileWithPath, IMAGE_MIME_TYPE } from '@mantine/dropzone';
-import { Button, Group, Stack, Progress, Alert, Image, SimpleGrid, ActionIcon, Text, Paper } from '@mantine/core';
-import { IconUpload, IconX, IconPhoto, IconTrash } from '@tabler/icons-react';
+import { Group, Stack, Progress, Alert, Image, SimpleGrid, ActionIcon, Text, Paper, Loader } from '@mantine/core';
+import { IconAlertCircle, IconPhoto, IconTrash } from '@tabler/icons-react';
 import { useAuthStore } from '@/store/AuthStore';
 import { getApiUrl } from '@/modules/api';
 
 interface ImageUploadProps {
-  schematicId?: string; // For associating images with schematics
+  schematicId?: string; // For associating images with schematics (only set after schematic is created)  
+  onUploadStarted: () => void;
+  onUploadProgress: (progress: number) => void;
   onUploadSuccess: (images: UploadedImage[]) => void;
   maxImages?: number;
+  imageType?: 'cover' | 'gallery' | 'avatar' | 'thumbnail';
+  stagingMode?: boolean; // New prop for staging uploads
 }
 
 export interface UploadedImage {
@@ -16,7 +20,8 @@ export interface UploadedImage {
   url: string;
   filename: string;
   size: number;
-  type: 'cover' | 'gallery' | 'avatar' | 'thumbnail';
+  type: 'cover' | 'gallery' | 'avatar' | 'thumbnail' | 'staged';
+  staged?: boolean;
 }
 
 interface ImageUploadProgress {
@@ -27,7 +32,7 @@ interface ImageUploadProgress {
   error?: string;
 }
 
-export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10 }: ImageUploadProps) {
+export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, onUploadSuccess, maxImages = 10, imageType = 'gallery', stagingMode = false }: ImageUploadProps) {
   const { getAccessToken } = useAuthStore();
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [uploads, setUploads] = useState<ImageUploadProgress[]>([]);
@@ -81,15 +86,17 @@ export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10 }: Im
         fileName: upload.file.name,
         fileSize: upload.file.size,
         contentType: upload.file.type,
-        schematicId, // Optional association
-        imageType: schematicId ? 'gallery' : 'avatar', // Determine type
-        generateThumbnail: true
+        schematicId: stagingMode ? undefined : schematicId,
+        imageType: stagingMode ? 'staged' : imageType,
+        generateThumbnail: true,
+        staged: stagingMode
       };
       
       console.log('Request body:', requestBody);
 
       // Step 1: Request upload URL
-      const uploadResponse = await fetch(getApiUrl('/images/upload-url'), {
+      const endpoint = stagingMode ? '/images/upload-staged' : '/images/upload-url';
+      const uploadResponse = await fetch(getApiUrl(endpoint), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -116,7 +123,8 @@ export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10 }: Im
 
       const { uploadUrl, imageId, fields } = await uploadResponse.json();
       console.log('Got upload URL and imageId:', imageId);
-
+      
+      onUploadStarted();
       updateUploadProgress(upload, 20, 'uploading');
 
       // Step 2: Upload to S3 with progress tracking
@@ -145,7 +153,11 @@ export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10 }: Im
       updateUploadProgress(upload, 70, 'processing', imageId);
 
       // Step 3: Confirm upload and wait for processing
-      const confirmResponse = await fetch(getApiUrl(`/images/${imageId}/confirm-upload`), {
+      const confirmEndpoint = stagingMode 
+        ? `/images/${imageId}/confirm-staged` 
+        : `/images/${imageId}/confirm-upload`;
+
+      const confirmResponse = await fetch(getApiUrl(confirmEndpoint), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -167,10 +179,14 @@ export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10 }: Im
         url: imageUrl,
         filename: upload.file.name,
         size: upload.file.size,
-        type: schematicId ? 'gallery' : 'avatar'
+        type: stagingMode ? 'staged' : imageType,
+        staged: stagingMode
       };
 
       setPreviewImages(prev => [...prev, newImage]);
+
+      // Notify parent component
+      onUploadSuccess([...previewImages, newImage]);
 
     } catch (error) {
       console.error('Upload failed:', error);
@@ -197,44 +213,101 @@ export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10 }: Im
       console.log('Updated uploads state:', updated);
       return updated;
     });
+    onUploadProgress(progress);
   };
 
-  const removeImage = async (imageId: string) => {
-    try {
-      // Get fresh token
-      const token = accessToken || await getAccessToken();
-      if (!token) {
-        console.error('No authentication token available for delete');
-        return;
-      }
+  const ImagePreviewItem = ({ image }: { image: UploadedImage }) => {
+    const [loading, setLoading] = useState(false);
 
-      // Call delete API
-      const deleteResponse = await fetch(getApiUrl(`/images/${imageId}`), {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
+    const removeImage = async (imageId: string) => {
+      try {
+        setLoading(true);
+        // Get fresh token
+        const token = accessToken || await getAccessToken();
+        if (!token) {
+          console.error('No authentication token available for delete');
+          return;
         }
-      });
+  
+        // In staging mode, we just remove from S3 temp storage
+        const deleteEndpoint = stagingMode 
+        ? `/images/${imageId}/remove-staged`
+        : `/images/${imageId}`;
 
-      if (!deleteResponse.ok) {
-        const errorText = await deleteResponse.text();
-        console.error('Failed to delete image:', deleteResponse.status, errorText);
-        return;
+        const deleteResponse = await fetch(getApiUrl(deleteEndpoint), {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+  
+        if (!deleteResponse.ok) {
+          const errorText = await deleteResponse.text();
+          console.error('Failed to delete image:', deleteResponse.status, errorText);
+          return;
+        }
+  
+        console.log('Image deleted successfully:', imageId);
+        
+        // Remove from preview images on successful delete
+        setPreviewImages(prev => {
+          const filtered = prev.filter(img => img.id !== imageId);
+          onUploadSuccess(filtered); // Update parent
+          return filtered;
+        });
+        setUploads(prev => prev.filter(upload => upload.imageId !== imageId));
+        
+      } catch (error) {
+        console.error('Error deleting image:', error);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      console.log('Image deleted successfully:', imageId);
-      
-      // Remove from preview images on successful delete
-      setPreviewImages(prev => prev.filter(img => img.id !== imageId));
-      
-    } catch (error) {
-      console.error('Error deleting image:', error);
-    }
-  };
+    return (
+      <div style={{ position: 'relative' }}>
+        <Image
+          src={image.url}
+          alt={image.filename}
+          height={120}
+          fit="cover"
+          radius="md"
+        />
+        {loading && <Loader
+          size="sm"
+          style={{
+            position: 'absolute',
+            top: 8,
+            left: 8,
+          }} 
+        />
+        }
+        <ActionIcon
+          color="red"
+          size="sm"
+          variant="filled"
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+          }}
+          onClick={() => removeImage(image.id)}
+        >
+          <IconTrash size="0.8rem" />
+        </ActionIcon>
+      </div>
+    );
+  }
 
   return (
     <Paper shadow="none" radius="sm">
       <Stack>
+        {stagingMode && (
+          <Alert icon={<IconAlertCircle />} color="blue" variant="light">
+            Images are temporarily uploaded. They will be permanently saved when you submit the form.
+          </Alert>
+        )}
+
         {/* Dropzone */}
         <Dropzone
           onDrop={handleDrop}
@@ -284,28 +357,7 @@ export function ImageUpload({ schematicId, onUploadSuccess, maxImages = 10 }: Im
         {previewImages.length > 0 && (
           <SimpleGrid cols={3} spacing="sm">
             {previewImages.map((image) => (
-              <div key={image.id} style={{ position: 'relative' }}>
-                <Image
-                  src={image.url}
-                  alt={image.filename}
-                  height={120}
-                  fit="cover"
-                  radius="md"
-                />
-                <ActionIcon
-                  color="red"
-                  size="sm"
-                  variant="filled"
-                  style={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                  }}
-                  onClick={() => removeImage(image.id)}
-                >
-                  <IconTrash size="0.8rem" />
-                </ActionIcon>
-              </div>
+              <ImagePreviewItem key={image.id} image={image} />
             ))}
           </SimpleGrid>
         )}

@@ -1,6 +1,7 @@
 import '@mantine/core/styles.css';
 
 import { MantineProvider } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
 import { router } from './Router';
 import { mantineTheme } from './theme';
 import { RouterProvider } from 'react-router-dom';
@@ -24,6 +25,7 @@ export default function App() {
 
     return (
         <MantineProvider theme={mantineTheme}>
+            <Notifications />
             <RouterProvider router={router}/>
         </MantineProvider>
     );
