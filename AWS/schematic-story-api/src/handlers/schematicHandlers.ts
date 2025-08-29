@@ -1,8 +1,15 @@
-import { APIGatewayProxyHandler } from 'aws-lambda';
+import { APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoService } from '../services/dynamoService';
 import { S3Service } from '../services/s3Service';
 import { ApiResponse } from '../utils/response';
-import { Validator } from '../utils/validation';
+import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
+import { S3Client, DeleteObjectCommand, CopyObjectCommand } from '@aws-sdk/client-s3';
+import { DynamoDBClient, PutItemCommand, QueryCommand, UpdateItemCommand, DeleteItemCommand, BatchWriteItemCommand } from '@aws-sdk/client-dynamodb';
+import { v4 as uuidv4 } from 'uuid';
+import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
+
+const s3Client = new S3Client({ region: process.env.AWS_REGION });
+const dynamoClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 
 // GET /schematics/{schematicId}
 export const getSchematic: APIGatewayProxyHandler = async (event) => {
@@ -29,57 +36,412 @@ export const getSchematic: APIGatewayProxyHandler = async (event) => {
 };
 
 // POST /schematics
-export const createSchematic: APIGatewayProxyHandler = async (event) => {
-  console.log('createSchematic event:', JSON.stringify(event));
-  
+export const createSchematic = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    if (!event.body) {
-      return ApiResponse.error('Request body is required', 400);
-    }
-
-    const body = JSON.parse(event.body);
+    const userId = event.requestContext.authorizer?.claims?.sub;
     
-    // In production, get this from JWT token
-    // For now, accept it from the body or headers
-    const authorId = event.headers['x-user-id'] || body.authorId;
+    if (!userId) {
+      return {
+        statusCode: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Unauthorized' })
+      };
+    }
+
+    const body = JSON.parse(event.body || '{}');
+    const {
+      title,
+      description,
+      tags,
+      contributors,
+      dimensions,
+      metadata,
+      imageIds, // Array of staged image IDs
+      coverImageId // Which image should be the cover
+    } = body;
+
+    if (!title || !imageIds || imageIds.length === 0) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Title and at least one image are required' })
+      };
+    }
+
+    const schematicId = `sch-${uuidv4()}`;
+    const timestamp = new Date().toISOString();
+
+    // Step 1: Create schematic record
+    const schematicItem = {
+      PK: `SCHEMATIC#${schematicId}`,
+      SK: 'METADATA',
+      EntityType: 'Schematic',
+      SchematicId: schematicId,
+      Title: title,
+      Description: description || '',
+      AuthorId: userId,
+      Status: 'draft', // Will be 'active' after file upload
+      Tags: tags || [],
+      Contributors: contributors || [],
+      Dimensions: dimensions || {},
+      Metadata: metadata || {},
+      CoverImageId: coverImageId || imageIds[0],
+      CreatedAt: timestamp,
+      UpdatedAt: timestamp,
+      Version: 1,
+      ViewCount: 0,
+      Downloads: 0,
+      // GSI projections
+      GSI1PK: `USER#${userId}`,
+      GSI1SK: `SCHEMATIC#${timestamp}#${schematicId}`,
+      GSI4PK: 'FEED#LATEST',
+      GSI4SK: `${timestamp}#SCHEMATIC#${schematicId}`
+    };
+
+    // Step 2: Prepare batch operations for committing images
+    const batchOperations = [];
     
-    if (!authorId) {
-      return ApiResponse.error('User ID is required', 400);
+    for (const imageId of imageIds) {
+      // Get staged image data
+      const stagedResponse = await dynamoClient.send(new QueryCommand({
+        TableName: process.env.TABLE_NAME!,
+        KeyConditionExpression: 'PK = :pk AND SK = :sk',
+        ExpressionAttributeValues: marshall({
+          ':pk': `STAGED#${imageId}`,
+          ':sk': 'METADATA'
+        })
+      }));
+
+      if (!stagedResponse.Items || stagedResponse.Items.length === 0) {
+        console.warn(`Staged image ${imageId} not found`);
+        continue;
+      }
+
+      const stagedImage = unmarshall(stagedResponse.Items[0]);
+      
+      // Verify ownership
+      if (stagedImage.UploaderId !== userId) {
+        console.warn(`User ${userId} doesn't own staged image ${imageId}`);
+        continue;
+      }
+
+      // Move image from staging to permanent location in S3
+      const newS3Key = `gallery/${schematicId}/${imageId}-${stagedImage.FileName}`;
+      
+      await s3Client.send(new CopyObjectCommand({
+        Bucket: process.env.S3_IMAGES_BUCKET_NAME!,
+        CopySource: `${process.env.S3_STAGING_BUCKET_NAME || process.env.S3_IMAGES_BUCKET_NAME}/${stagedImage.S3Key}`,
+        Key: newS3Key,
+        MetadataDirective: 'COPY'
+      }));
+
+      // Delete from staging
+      await s3Client.send(new DeleteObjectCommand({
+        Bucket: process.env.S3_STAGING_BUCKET_NAME || process.env.S3_IMAGES_BUCKET_NAME!,
+        Key: stagedImage.S3Key
+      }));
+
+      // Create permanent image record
+      const imageItem = {
+        PK: `IMAGE#${imageId}`,
+        SK: 'METADATA',
+        EntityType: 'Image',
+        ImageId: imageId,
+        FileName: stagedImage.FileName,
+        FileSize: stagedImage.FileSize,
+        ContentType: stagedImage.ContentType,
+        ImageType: imageId === coverImageId ? 'cover' : 'gallery',
+        UploaderId: userId,
+        SchematicId: schematicId,
+        S3Key: newS3Key,
+        Status: 'active',
+        CreatedAt: timestamp,
+        UpdatedAt: timestamp,
+        GSI1PK: `SCHEMATIC#${schematicId}`,
+        GSI1SK: `IMAGE#${timestamp}#${imageId}`
+      };
+
+      // Create schematic-image association
+      const associationItem = {
+        PK: `SCHEMATIC#${schematicId}`,
+        SK: `IMAGE#${imageId}`,
+        EntityType: 'SchematicImage',
+        SchematicId: schematicId,
+        ImageId: imageId,
+        ImageType: imageId === coverImageId ? 'cover' : 'gallery',
+        CreatedAt: timestamp
+      };
+
+      batchOperations.push(
+        { PutRequest: { Item: marshall(imageItem) } },
+        { PutRequest: { Item: marshall(associationItem) } }
+      );
     }
 
-    // Validate schematic data
-    const validation = Validator.validateSchematicData(body);
-    if (!validation.valid) {
-      return ApiResponse.error('Validation failed', 400, validation.errors);
+    // Step 3: Write everything to DynamoDB
+    await dynamoClient.send(new PutItemCommand({
+      TableName: process.env.TABLE_NAME!,
+      Item: marshall(schematicItem)
+    }));
+
+    // Batch write image records (max 25 items per batch)
+    const chunks = [];
+    for (let i = 0; i < batchOperations.length; i += 25) {
+      chunks.push(batchOperations.slice(i, i + 25));
     }
 
-    // Get author details
-    const author = await DynamoService.getUser(authorId);
-    if (!author) {
-      return ApiResponse.error('Author not found', 404);
+    for (const chunk of chunks) {
+      await dynamoClient.send(new BatchWriteItemCommand({
+        RequestItems: {
+          [process.env.TABLE_NAME!]: chunk
+        }
+      }));
     }
 
-    const schematic = await DynamoService.createSchematic(
-      {
-        title: Validator.sanitizeInput(body.title),
-        description: body.description ? Validator.sanitizeInput(body.description) : '',
-        authorId,
-        authorUsername: author.username,
-        tags: body.tags || [],
-        status: 'active',
-        version: 1,
-        fileUrl: body.fileUrl,
-        coverImageUrl: body.coverImageUrl,
-        dimensions: body.dimensions,
-        blockCount: body.blockCount
+    // Step 4: Clean up staged records
+    for (const imageId of imageIds) {
+      await dynamoClient.send(new DeleteItemCommand({
+        TableName: process.env.TABLE_NAME!,
+        Key: marshall({
+          PK: `STAGED#${imageId}`,
+          SK: 'METADATA'
+        })
+      })).catch(err => console.warn(`Failed to delete staged record for ${imageId}:`, err));
+    }
+
+    // Step 5: Create tags
+    if (tags && tags.length > 0) {
+      for (const tag of tags) {
+        const tagItem = {
+          PK: `SCHEMATIC#${schematicId}`,
+          SK: `TAG#${tag}`,
+          EntityType: 'SchematicTag',
+          SchematicId: schematicId,
+          TagName: tag,
+          CreatedAt: timestamp,
+          GSI2PK: `TAG#${tag}`,
+          GSI2SK: `${timestamp}#SCHEMATIC#${schematicId}`
+        };
+
+        await dynamoClient.send(new PutItemCommand({
+          TableName: process.env.TABLE_NAME!,
+          Item: marshall(tagItem)
+        }));
+      }
+    }
+
+    return {
+      statusCode: 201,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
       },
-      author.username
-    );
+      body: JSON.stringify({
+        schematicId,
+        message: 'Schematic created successfully'
+      })
+    };
 
-    return ApiResponse.success(schematic, 201);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating schematic:', error);
-    return ApiResponse.error('Internal server error', 500);
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ error: 'Failed to create schematic' })
+    };
+  }
+};
+
+// GET /schematics/uploadUrl upload URL for schematic file
+export const getSchematicFileUploadUrl = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const userId = event.requestContext.authorizer?.claims?.sub;
+    
+    if (!userId) {
+      return {
+        statusCode: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Unauthorized' })
+      };
+    }
+
+    const body = JSON.parse(event.body || '{}');
+    const { schematicId, fileName, fileSize, contentType } = body;
+
+    if (!schematicId || !fileName || !fileSize) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Missing required fields' })
+      };
+    }
+
+    // Verify user owns the schematic
+    const schematicResponse = await dynamoClient.send(new QueryCommand({
+      TableName: process.env.TABLE_NAME!,
+      KeyConditionExpression: 'PK = :pk AND SK = :sk',
+      ExpressionAttributeValues: marshall({
+        ':pk': `SCHEMATIC#${schematicId}`,
+        ':sk': 'METADATA'
+      })
+    }));
+
+    if (!schematicResponse.Items || schematicResponse.Items.length === 0) {
+      return {
+        statusCode: 404,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Schematic not found' })
+      };
+    }
+
+    const schematic = unmarshall(schematicResponse.Items[0]);
+    
+    if (schematic.AuthorId !== userId) {
+      return {
+        statusCode: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Unauthorized' })
+      };
+    }
+
+    // Generate S3 key for schematic file
+    const s3Key = `schematics/${schematicId}/${fileName}`;
+
+    // Create presigned POST URL
+    const maxFileSize = parseInt(process.env.MAX_SCHEMATIC_SIZE_MB || '50') * 1024 * 1024;
+    const { url, fields } = await createPresignedPost(s3Client, {
+      Bucket: process.env.S3_SCHEMATICS_BUCKET_NAME || process.env.S3_IMAGES_BUCKET_NAME!,
+      Key: s3Key,
+      Conditions: [
+        ['content-length-range', 0, maxFileSize],
+      ],
+      Fields: {
+        'Content-Type': contentType || 'application/json',
+      },
+      Expires: 600, // 10 minutes
+    });
+
+    // Update schematic record with file info
+    await dynamoClient.send(new UpdateItemCommand({
+      TableName: process.env.TABLE_NAME!,
+      Key: marshall({
+        PK: `SCHEMATIC#${schematicId}`,
+        SK: 'METADATA'
+      }),
+      UpdateExpression: 'SET FileS3Key = :s3Key, FileName = :fileName, FileSize = :fileSize, UpdatedAt = :updated',
+      ExpressionAttributeValues: marshall({
+        ':s3Key': s3Key,
+        ':fileName': fileName,
+        ':fileSize': fileSize,
+        ':updated': new Date().toISOString()
+      })
+    }));
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({
+        uploadUrl: url,
+        fields
+      })
+    };
+
+  } catch (error) {
+    console.error('Error generating schematic file upload URL:', error);
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ error: 'Failed to generate upload URL' })
+    };
+  }
+};
+
+// GET /schematics/{schematicId}/confirmUpload Confirm schematic upload (after file is uploaded)
+export const confirmSchematicUpload = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const schematicId = event.pathParameters?.schematicId;
+    const userId = event.requestContext.authorizer?.claims?.sub;
+
+    if (!schematicId || !userId) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Missing required parameters' })
+      };
+    }
+
+    // Update schematic status from draft to active
+    const updateResult = await dynamoClient.send(new UpdateItemCommand({
+      TableName: process.env.TABLE_NAME!,
+      Key: marshall({
+        PK: `SCHEMATIC#${schematicId}`,
+        SK: 'METADATA'
+      }),
+      UpdateExpression: 'SET #status = :status, UpdatedAt = :updated',
+      ExpressionAttributeNames: {
+        '#status': 'Status'
+      },
+      ExpressionAttributeValues: marshall({
+        ':status': 'active',
+        ':updated': new Date().toISOString(),
+        ':userId': userId
+      }),
+      ConditionExpression: 'AuthorId = :userId',
+      ReturnValues: 'ALL_NEW'
+    }));
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({
+        message: 'Schematic upload confirmed',
+        schematicId
+      })
+    };
+
+  } catch (error) {
+    console.error('Error confirming schematic:', error);
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ error: 'Failed to confirm schematic' })
+    };
   }
 };
 
