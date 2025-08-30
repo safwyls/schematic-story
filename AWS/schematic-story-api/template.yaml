@@ -2,6 +2,7 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Schematic Story Complete API with Image Upload System
 
+# region GLOBALS
 Globals:
   Function:
     Timeout: 30
@@ -24,6 +25,7 @@ Globals:
         MAX_IMAGE_SIZE_MB: 10
     Tracing: Active
 
+# region PARAMETERS
 Parameters:
   DynamoDBTableName:
     Type: String
@@ -57,10 +59,9 @@ Parameters:
     - production
     Description: Environment name
 
+# region RESOURCES
 Resources:
-#==================================================================================================
-# S3 BUCKETS
-#==================================================================================================
+#region S3 BUCKETS
   SchematicsBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -118,10 +119,7 @@ Resources:
               - TransitionInDays: 90
                 StorageClass: GLACIER
 
-
-#==================================================================================================
-# CLOUDFRONT DISTRIBUTIONS
-#==================================================================================================
+#region CLOUDFRONT DISTRIBUTIONS
   SchematicsCloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
@@ -213,9 +211,7 @@ Resources:
             Action: s3:GetObject
             Resource: !Sub "${ImagesBucket.Arn}/*"
 
-#==================================================================================================
-# REST API
-#==================================================================================================
+#region REST API
   SchematicStoryApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -249,9 +245,7 @@ Resources:
       RestApiId: !Ref SchematicStoryApi
       Stage: Prod
 
-#==================================================================================================
-# COGNITO AUTHENTICATION
-#==================================================================================================
+#region COGNITO AUTHENTICATION
   SchematicStoryUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -306,9 +300,7 @@ Resources:
       CustomDomainConfig:
         CertificateArn: arn:aws:acm:us-east-1:868651351479:certificate/8052dcf4-d13e-44eb-a5c8-6344c18d72d3
 
-#==================================================================================================
-# LAMBDA LAYERS
-#==================================================================================================
+#region LAMBDA LAYERS
   SharpLambdaLayer:
     Type: AWS::Serverless::Application
     Properties:
@@ -340,9 +332,7 @@ Resources:
       CompatibleArchitectures:
         - x86_64
 
-#==================================================================================================
-# SHARP TEST
-#==================================================================================================
+#region SHARP TEST
   # Add this function to your template.yaml
   TestSharpFunction:
     Type: AWS::Serverless::Function
@@ -361,9 +351,7 @@ Resources:
             Auth:
               Authorizer: NONE  # No auth needed for testing
 
-#==================================================================================================
-# IMAGE UPLOAD FUNCTIONS
-#==================================================================================================
+#region IMAGE UPLOAD FUNCTIONS
   GetStagedImageUploadUrlFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -551,9 +539,7 @@ Resources:
             Path: /users/{userId}/avatar
             Method: POST
 
-#==================================================================================================
-# ENHANCED SCHEMATIC FUNCTIONS
-#==================================================================================================
+#region ENHANCED SCHEMATIC FUNCTIONS
   ProcessSchematicUploadFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -582,9 +568,7 @@ Resources:
             Path: /schematics/{schematicId}/confirm-upload
             Method: POST
 
-#==================================================================================================
-# S3 PERMISSIONS FOR LAMBDA FUNCTIONS
-#==================================================================================================
+#region S3 PERMISSIONS FOR LAMBDA FUNCTIONS
   ProcessSchematicUploadPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -601,9 +585,7 @@ Resources:
       Action: lambda:InvokeFunction
       SourceArn: !Sub "${ImagesBucket.Arn}/*"
 
-#==================================================================================================
-# USER ENDPOINTS
-#==================================================================================================
+#region USER ENDPOINTS
   GetUserFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -659,9 +641,7 @@ Resources:
             Auth:
               Authorizer: NONE
 
-#==================================================================================================
-# SCHEMATIC ENDPOINTS
-#==================================================================================================
+#region SCHEMATIC ENDPOINTS
   GetSchematicFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -846,9 +826,7 @@ Resources:
             Path: /schematics/upload-url
             Method: POST
 
-#==================================================================================================
-# COMMENT ENDPOINTS
-#==================================================================================================
+#region COMMENT ENDPOINTS
   GetCommentsBySchematicFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -919,9 +897,7 @@ Resources:
             Path: /comments/{commentId}
             Method: DELETE
 
-#==================================================================================================
-# FOLLOW ENDPOINTS
-#==================================================================================================
+#region FOLLOW ENDPOINTS
   FollowUserFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -990,9 +966,7 @@ Resources:
             Path: /users/{userId}/following
             Method: GET
 
-#==================================================================================================
-# NOTIFICATION ENDPOINTS
-#==================================================================================================
+#region NOTIFICATION ENDPOINTS
   GetUserNotificationsFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -1044,9 +1018,7 @@ Resources:
             Path: /users/{userId}/notifications/read-all
             Method: PUT
 
-#==================================================================================================
-# HEALTH CHECK
-#==================================================================================================
+#region HEALTH CHECK
   HealthCheckFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -1062,9 +1034,7 @@ Resources:
             Auth:
               Authorizer: NONE
 
-#==================================================================================================
-# COGNITO TRIGGERS
-#==================================================================================================
+#region COGNITO TRIGGERS
   CognitoPostConfirmationFunction:
     Type: AWS::Serverless::Function
     Properties:

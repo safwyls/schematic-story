@@ -45,6 +45,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/AuthStore';
+import { useEffect, useState } from 'react';
+import { getApiUrl } from '@/modules/api';
 
 const mockdata = [
   {
@@ -84,10 +86,12 @@ export function HeaderMegaMenu() {
   const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false);
   const [linksOpened, { toggle: toggleLinks }] = useDisclosure(false);
   const [userMenuOpened, { toggle: toggleUserMenu }] = useDisclosure(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   //const [userMenuOpened, setUserMenuOpened] = useState(false);
   const theme = useMantineTheme();
   const auth = useAuth();
   const navigate = useNavigate();
+
   
   const signOutRedirect = async () => {    
     // Remove the user from local session
@@ -102,11 +106,31 @@ export function HeaderMegaMenu() {
     auth.signinRedirect();
   }
 
-  const test = () => {
-    console.log(auth.user?.profile["cognito:username"]);
-    console.log(auth.user?.profile.sub);
-  }
+  // Load user avatar on component mount
+  useEffect(() => {    
+    const loadUserAvatar = async () => {
+        try {
+            const response = await fetch(getApiUrl(`/users/${user.id}/avatar`));
+                        
+            if (response.ok) {
+                const avatarData = await response.json();
+                setAvatarUrl(avatarData.thumbnailUrl || avatarData.avatarUrl);
+            } else if (response.status === 404) {
+                // No avatar found, use default
+                setAvatarUrl(null);
+            } else {
+                console.error('Failed to load avatar:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Error loading avatar:', error);            
+        }
+    };
 
+    if (user.id) {
+      loadUserAvatar();
+    }
+  }, [user.id]);
+  
   const navigateTo = (path: string) => {
     closeDrawer();
     navigate(path);
@@ -213,7 +237,7 @@ export function HeaderMegaMenu() {
                       className={cx(classes.user, { [classes.userActive]: userMenuOpened })}
                     >
                       <Group gap={7}>
-                        <Avatar src={user.avatarUrl} alt={user.username} radius="xl" size={20} />
+                        <Avatar src={avatarUrl} alt={user.preferred_username} radius="xl" size={20} />
                         <Text fw={500} size="sm" lh={1} mr={3}>
                           {user.preferred_username}
                         </Text>

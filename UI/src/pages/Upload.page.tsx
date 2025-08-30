@@ -128,7 +128,7 @@ export function UploadPage() {
                                         <Badge>Z: {dimensions.z}</Badge>
                                         <Badge>Y: {dimensions.y}</Badge>
                                     </Group>
-                                    <ImageUpload maxImages={10} onUploadSuccess={onImageUploadSuccess} />
+                                    <ImageUpload maxImages={10} onUploadSuccess={onImageUploadSuccess} onUploadStarted={() => {}} onUploadProgress={() => {}} stagingMode={true}/>
                                     <DescriptionBlockNote label="Description" editMode={true} />
                                 </Stack>
                             </Card>
