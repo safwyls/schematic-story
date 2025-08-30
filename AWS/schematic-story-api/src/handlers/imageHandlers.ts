@@ -398,8 +398,8 @@ export const getImageUploadUrl = async (event: APIGatewayProxyEvent): Promise<AP
         GSI1SK: `IMAGE#${timestamp}#${imageId}`,
       }),
       ...(imageType === 'avatar' && {
-        GSI2PK: `USER#${userId}`,
-        GSI2SK: `AVATAR#${timestamp}#${imageId}`,
+        GSI1PK: `USER#${userId}`,
+        GSI1SK: `AVATAR#${timestamp}#${imageId}`,
       })
     };
 
@@ -833,6 +833,236 @@ export const processImageUpload = async (event: S3Event): Promise<void> => {
 };
 //#endregion
 
+//#region User Avatar Functions
+// Get user avatar information
+export const getUserAvatar = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const userId = event.pathParameters?.userId;
+
+    if (!userId) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'User ID is required' })
+      };
+    }
+
+    // Query for user's avatar images using UserContentIndex
+    const queryResponse = await dynamoClient.send(new QueryCommand({
+      TableName: process.env.TABLE_NAME!,
+      IndexName: 'UserContentIndex',
+      KeyConditionExpression: 'GSI1PK = :userPK AND begins_with(GSI1SK, :avatarPrefix)',
+      ExpressionAttributeValues: marshall({
+        ':userPK': `USER#${userId}`,
+        ':avatarPrefix': 'AVATAR#'
+      }),
+      ScanIndexForward: false, // Get most recent first
+      Limit: 1
+    }));
+
+    if (!queryResponse.Items || queryResponse.Items.length === 0) {
+      return {
+        statusCode: 404,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ 
+          message: 'No avatar found for user',
+          userId,
+          avatarUrl: null,
+          thumbnailUrl: null
+        })
+      };
+    }
+
+    const avatarRecord = unmarshall(queryResponse.Items[0]);
+
+    // Generate CloudFront URLs
+    const avatarUrl = `https://${process.env.CLOUDFRONT_IMAGES_DOMAIN}/${avatarRecord.S3Key}`;
+    const thumbnailUrl = avatarRecord.ThumbnailS3Key 
+      ? `https://${process.env.CLOUDFRONT_IMAGES_DOMAIN}/${avatarRecord.ThumbnailS3Key}`
+      : avatarUrl;
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({
+        userId,
+        imageId: avatarRecord.ImageId,
+        avatarUrl,
+        thumbnailUrl,
+        fileName: avatarRecord.FileName,
+        contentType: avatarRecord.ContentType,
+        status: avatarRecord.Status,
+        createdAt: avatarRecord.CreatedAt,
+        updatedAt: avatarRecord.UpdatedAt
+      })
+    };
+
+  } catch (error) {
+    console.error('Error getting user avatar:', error);
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ error: 'Failed to get user avatar' })
+    };
+  }
+};
+
+// Update user avatar
+export const updateUserAvatar = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const userId = event.pathParameters?.userId;
+    const requestUserId = event.requestContext.authorizer?.claims?.sub;
+    
+    if (!userId) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'User ID is required' })
+      };
+    }
+
+    if (!requestUserId) {
+      return {
+        statusCode: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Unauthorized - User ID not found' })
+      };
+    }
+
+    // Verify user can only update their own avatar
+    if (userId !== requestUserId) {
+      return {
+        statusCode: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Unauthorized - You can only update your own avatar' })
+      };
+    }
+
+    const body = JSON.parse(event.body || '{}');
+    const { imageId } = body;
+
+    if (!imageId) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Image ID is required' })
+      };
+    }
+
+    // Verify the image exists and belongs to the user
+    const getImageResponse = await dynamoClient.send(new QueryCommand({
+      TableName: process.env.TABLE_NAME!,
+      KeyConditionExpression: 'PK = :pk AND SK = :sk',
+      ExpressionAttributeValues: marshall({
+        ':pk': `IMAGE#${imageId}`,
+        ':sk': 'METADATA'
+      })
+    }));
+
+    if (!getImageResponse.Items || getImageResponse.Items.length === 0) {
+      return {
+        statusCode: 404,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Image not found' })
+      };
+    }
+
+    const imageRecord = unmarshall(getImageResponse.Items[0]);
+
+    // Verify user owns the image
+    if (imageRecord.UploaderId !== userId) {
+      return {
+        statusCode: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Unauthorized - You can only use your own images as avatar' })
+      };
+    }
+
+    // Verify image is an avatar type or update it to be one
+    const timestamp = new Date().toISOString();
+    
+    // Update the image record to mark it as avatar type and add GSI1 projection
+    await dynamoClient.send(new UpdateItemCommand({
+      TableName: process.env.TABLE_NAME!,
+      Key: marshall({
+        PK: `IMAGE#${imageId}`,
+        SK: 'METADATA'
+      }),
+      UpdateExpression: 'SET ImageType = :imageType, GSI1PK = :gsi1pk, GSI1SK = :gsi1sk, UpdatedAt = :updated',
+      ExpressionAttributeValues: marshall({
+        ':imageType': 'avatar',
+        ':gsi1pk': `USER#${userId}`,
+        ':gsi1sk': `AVATAR#${timestamp}#${imageId}`,
+        ':updated': timestamp
+      })
+    }));
+
+    // Generate CloudFront URLs
+    const avatarUrl = `https://${process.env.CLOUDFRONT_IMAGES_DOMAIN}/${imageRecord.S3Key}`;
+    const thumbnailUrl = imageRecord.ThumbnailS3Key 
+      ? `https://${process.env.CLOUDFRONT_IMAGES_DOMAIN}/${imageRecord.ThumbnailS3Key}`
+      : avatarUrl;
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({
+        message: 'Avatar updated successfully',
+        userId,
+        imageId,
+        avatarUrl,
+        thumbnailUrl,
+        updatedAt: timestamp
+      })
+    };
+
+  } catch (error) {
+    console.error('Error updating user avatar:', error);
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ error: 'Failed to update user avatar' })
+    };
+  }
+};
+//#endregion
+
 //#region Utility functions
 const streamToBuffer = async (stream: NodeJS.ReadableStream): Promise<Buffer> => {
   const chunks: Uint8Array[] = [];
@@ -857,7 +1087,7 @@ export const cleanupExpiredStagedImages = async (): Promise<void> => {
     // Note: DynamoDB TTL cleanup happens automatically, but this ensures S3 cleanup
     const queryResponse = await dynamoClient.send(new QueryCommand({
       TableName: process.env.TABLE_NAME!,
-      IndexName: 'GSI1', // Assuming GSI1 can be used to find staged images
+      IndexName: 'UserContentIndex', // Use UserContentIndex to find staged images
       KeyConditionExpression: 'begins_with(GSI1PK, :staged)',
       FilterExpression: 'TTL < :now',
       ExpressionAttributeValues: marshall({

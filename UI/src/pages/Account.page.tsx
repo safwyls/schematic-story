@@ -5,7 +5,7 @@ import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import { IconKey, IconTrash, IconAlertCircle, IconCheck, IconUser, IconUpload } from "@tabler/icons-react";
 import { useDisclosure } from '@mantine/hooks';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { notifications } from '@mantine/notifications';
 import classes from './Account.module.css';
 import { useAuthStore } from "@/store/AuthStore";
@@ -34,7 +34,8 @@ export function AccountPage() {
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-    const [avatarImages, setAvatarImages] = useState<UploadedImage[]>([]);
+    const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(null);
+    const [isLoadingAvatar, setIsLoadingAvatar] = useState(true);
 
     const form = useForm({
         mode: 'uncontrolled',
@@ -42,7 +43,6 @@ export function AccountPage() {
             userName: user.preferred_username,
             email: user.email,
             tz: user.timezone == '' || null ? dayjs.tz.guess() : user.timezone,
-            avatarUrl: user.avatarUrl || '/src/assets/silhouette.png',
         },
         validate: {
           email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email')
@@ -138,32 +138,71 @@ export function AccountPage() {
         }
     };
 
+    // Load user avatar on component mount
+    useEffect(() => {
+        const loadUserAvatar = async () => {
+            try {
+                setIsLoadingAvatar(true);
+                const response = await fetch(getApiUrl(`/users/${user.id}/avatar`));
+                
+                if (response.ok) {
+                    const avatarData = await response.json();
+                    setCurrentAvatarUrl(avatarData.thumbnailUrl || avatarData.avatarUrl);
+                } else if (response.status === 404) {
+                    // No avatar found, use default
+                    setCurrentAvatarUrl(null);
+                } else {
+                    console.error('Failed to load avatar:', response.statusText);
+                }
+            } catch (error) {
+                console.error('Error loading avatar:', error);
+            } finally {
+                setIsLoadingAvatar(false);
+            }
+        };
+
+        if (user.id) {
+            loadUserAvatar();
+        }
+    }, [user.id]);
+
     const handleAvatarUploadSuccess = async (images: UploadedImage[]) => {
         try {
-            const response = await fetch(getApiUrl('/users/update-profile'), {
-                method: 'PUT',
+            setAvatarLoading(true);
+            
+            // Use the new updateUserAvatar endpoint
+            const response = await fetch(getApiUrl(`/users/${user.id}/avatar`), {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${await getAccessToken()}`,
                 },
                 body: JSON.stringify({
-                    avatarUrl: images[0].url
+                    imageId: images[0].id // Use the imageId from the uploaded image
                 }),
             });
 
             if (response.ok) {
+                const result = await response.json();
+                setCurrentAvatarUrl(result.thumbnailUrl || result.avatarUrl);
+                
                 notifications.show({
-                    title: 'Profile Avatar Updated',
+                    title: 'Avatar Updated',
                     message: 'Your profile avatar has been successfully updated.',
                     color: 'green',
                     icon: <IconCheck size="1rem" />,
                 });
+                
+                avatarModalClose();
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to update avatar');
             }
             
         } catch (error: any) {
             notifications.show({
-                title: 'Profile Update Failed',
-                message: error.message,
+                title: 'Avatar Update Failed',
+                message: error.message || 'Failed to update avatar',
                 color: 'red',
                 icon: <IconAlertCircle size="1rem" />,
             });
@@ -414,13 +453,13 @@ export function AccountPage() {
                         <Group mb="lg">
                             <Group align="center" onClick={avatarModalOpen} style={{ cursor: 'pointer' }}>
                                 {
-                                    avatarLoading 
+                                    (avatarLoading || isLoadingAvatar)
                                     ?
                                         <Loader size="md" />
                                     
                                     :
                                         <Avatar 
-                                            src={form.getValues().avatarUrl || avatarImages[0]?.url} 
+                                            src={currentAvatarUrl || '/src/assets/silhouette.png'} 
                                             size={80}
                                             radius="xl"
                                         >
@@ -430,7 +469,7 @@ export function AccountPage() {
                                 <Stack gap="xs">
                                     <Text fw={500}>Profile Picture</Text>
                                     <Text size="sm" c="dimmed">
-                                        Upload a new avatar image (max 10MB)
+                                        {currentAvatarUrl ? 'Click to change avatar' : 'Click to upload avatar'} (max 10MB)
                                     </Text>
                                 </Stack>
                             </Group>
