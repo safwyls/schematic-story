@@ -44,9 +44,10 @@ export const useAuthStore = create<AuthState>()(
         },
         authenticated: false,
         userManager: userManager,
+        
         signOut: () => {
-
         },
+
         getAccessToken: () => {
           return new Promise((resolve, reject) => {            
             userManager.getUser().then((user) => {
@@ -60,6 +61,7 @@ export const useAuthStore = create<AuthState>()(
             });
           });
         },
+
         setFromOidcUser: (u) => 
           set(() => {
             if (!u || !u.profile) return { user: undefined, authenticated: false };
@@ -72,8 +74,9 @@ export const useAuthStore = create<AuthState>()(
               timezone: (u.profile["timezone"] as string) ?? 'America/Los_Angeles'
             };
             return { user: appUser, authenticated: true };
-          }),
-          clear: () => set({ user: undefined, authenticated: false}),
+        }),
+
+        clear: () => set({ user: undefined, authenticated: false}),
       }),
       {
         name: 'auth-storage',

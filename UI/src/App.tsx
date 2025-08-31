@@ -25,7 +25,7 @@ export default function App() {
 
     return (
         <MantineProvider theme={mantineTheme}>
-              <Notifications />  
+            <Notifications />  
             <RouterProvider router={router}/>
         </MantineProvider>
     );

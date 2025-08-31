@@ -82,12 +82,11 @@ const mockdata = [
 ];
 
 export function HeaderMegaMenu() {
-  const { user } = useAuthStore();
+  const { user, authenticated } = useAuthStore();
   const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false);
   const [linksOpened, { toggle: toggleLinks }] = useDisclosure(false);
   const [userMenuOpened, { toggle: toggleUserMenu }] = useDisclosure(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  //const [userMenuOpened, setUserMenuOpened] = useState(false);
   const theme = useMantineTheme();
   const auth = useAuth();
   const navigate = useNavigate();
@@ -104,6 +103,14 @@ export function HeaderMegaMenu() {
 
   const signInRedirect = () => {
     auth.signinRedirect();
+  }
+
+  const signInRedirectTo = (redirectPath: string) => {
+    const redirectUri = `${window.location.origin}${redirectPath}`;
+    
+    auth.signinRedirect({
+      redirect_uri: redirectUri
+    });
   }
 
   // Load user avatar on component mount
@@ -134,6 +141,14 @@ export function HeaderMegaMenu() {
   const navigateTo = (path: string) => {
     closeDrawer();
     navigate(path);
+  }
+
+  const uploadRedirect = () => {
+    if (authenticated) {
+      navigate('/upload');
+    } else {
+      signInRedirectTo('/upload');
+    }
   }
 
   const links = mockdata.map((item) => (
@@ -200,7 +215,7 @@ export function HeaderMegaMenu() {
                           Upload your creation!
                         </Text>
                       </div>
-                      <Button variant="default" onClick={() => navigate('/upload')}>Upload</Button>
+                      <Button variant="default" onClick={uploadRedirect}>Upload</Button>
                     </Group>
                   </div>
                 </HoverCard.Dropdown>
@@ -223,7 +238,7 @@ export function HeaderMegaMenu() {
           <Group visibleFrom="md">
             <ColorSchemeToggle />
             
-            {auth.isAuthenticated 
+            {authenticated 
               ?
                 <Menu
                   width={260}
@@ -283,19 +298,18 @@ export function HeaderMegaMenu() {
                 </Menu>
               :
                 <UnstyledButton 
-                      onClick={signInRedirect}
-                      className={cx(classes.user, { [classes.userActive]: userMenuOpened })}
-                    >
-                      <Group gap={7}>
-                        <Avatar src="src/assets/silhouette.png" alt="Login button" radius="xl" size={20} />                        
-                        <Text fw={500} size="sm" lh={1} mr={3}>
-                          Login
-                        </Text>
-                      </Group>
-                    </UnstyledButton>
+                  onClick={signInRedirect}
+                  className={cx(classes.user, { [classes.userActive]: userMenuOpened })}
+                >
+                  <Group gap={7}>
+                    <Avatar src="src/assets/silhouette.png" alt="Login button" radius="xl" size={20} />                        
+                    <Text fw={500} size="sm" lh={1} mr={3}>
+                      Login
+                    </Text>
+                  </Group>
+                </UnstyledButton>
             }
           </Group>
-          
           <Burger opened={drawerOpened} onClick={toggleDrawer} hiddenFrom="md" />
         </Group>
       </header>
