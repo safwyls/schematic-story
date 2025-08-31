@@ -1008,6 +1008,59 @@ export const updateUserAvatar = async (event: APIGatewayProxyEvent): Promise<API
       };
     }
 
+    // Find and delete existing avatar before setting new one
+    const existingAvatarQuery = await dynamoClient.send(new QueryCommand({
+      TableName: process.env.TABLE_NAME!,
+      IndexName: 'UserContentIndex',
+      KeyConditionExpression: 'GSI1PK = :gsi1pk AND begins_with(GSI1SK, :gsi1sk)',
+      ExpressionAttributeValues: marshall({
+        ':gsi1pk': `USER#${userId}`,
+        ':gsi1sk': 'AVATAR#'
+      }),
+      ScanIndexForward: false, // Get most recent first
+      Limit: 1
+    }));
+
+    // Clean up existing avatar if found
+    if (existingAvatarQuery.Items && existingAvatarQuery.Items.length > 0) {
+      const existingAvatar = unmarshall(existingAvatarQuery.Items[0]);
+      const existingImageId = existingAvatar.PK.replace('IMAGE#', '');
+      
+      // Don't delete if it's the same image being set as avatar again
+      if (existingImageId !== imageId) {
+        try {
+          // Delete S3 objects (original and thumbnail)
+          if (existingAvatar.S3Key) {
+            await s3Client.send(new DeleteObjectCommand({
+              Bucket: process.env.S3_IMAGES_BUCKET_NAME!,
+              Key: existingAvatar.S3Key
+            }));
+          }
+          
+          if (existingAvatar.ThumbnailS3Key) {
+            await s3Client.send(new DeleteObjectCommand({
+              Bucket: process.env.S3_IMAGES_BUCKET_NAME!,
+              Key: existingAvatar.ThumbnailS3Key
+            }));
+          }
+
+          // Delete DynamoDB record
+          await dynamoClient.send(new DeleteItemCommand({
+            TableName: process.env.TABLE_NAME!,
+            Key: marshall({
+              PK: `IMAGE#${existingImageId}`,
+              SK: 'METADATA'
+            })
+          }));
+          
+          console.log(`Cleaned up old avatar: ${existingImageId}`);
+        } catch (cleanupError) {
+          console.error('Error cleaning up old avatar:', cleanupError);
+          // Continue with setting new avatar even if cleanup fails
+        }
+      }
+    }
+
     // Verify image is an avatar type or update it to be one
     const timestamp = new Date().toISOString();
     
