@@ -6,7 +6,7 @@ import { mantineTheme } from './theme';
 import { RouterProvider } from 'react-router-dom';
 import { useAuthStore } from "@/store/AuthStore";
 import { useEffect } from 'react';
-import "./App.css";
+import "./styles/App.css";
 import '@mantine/notifications/styles.css';
 import { Notifications } from '@mantine/notifications';
 
