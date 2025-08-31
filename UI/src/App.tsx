@@ -1,17 +1,17 @@
 import '@mantine/core/styles.css';
 
 import { MantineProvider } from '@mantine/core';
-import { Notifications } from '@mantine/notifications';
 import { router } from './Router';
 import { mantineTheme } from './theme';
 import { RouterProvider } from 'react-router-dom';
 import { useAuthStore } from "@/store/AuthStore";
-import { userManager } from './main';
 import { useEffect } from 'react';
 import "./App.css";
+import '@mantine/notifications/styles.css';
+import { Notifications } from '@mantine/notifications';
 
 export default function App() {  
-    const { setFromOidcUser } = useAuthStore();
+    const { setFromOidcUser, userManager } = useAuthStore();
     
     useEffect(() => {
         const onLoaded = (u: any) => {
@@ -25,7 +25,7 @@ export default function App() {
 
     return (
         <MantineProvider theme={mantineTheme}>
-            <Notifications />
+              <Notifications />  
             <RouterProvider router={router}/>
         </MantineProvider>
     );

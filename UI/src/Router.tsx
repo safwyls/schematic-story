@@ -50,6 +50,7 @@ export const router = createBrowserRouter([
       { path: '/upload', element: <UploadPage />},
       { path: '/profile/:username/:tab?', element: <ProfilePage />},
       { path: '/swagger', element: <SwaggerPage />},
+      { path: '/auth/welcome', element: <HomePage />},
       { path: '*', element: <NotFoundPage /> }
     ]
   }

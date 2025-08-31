@@ -284,8 +284,8 @@ Resources:
         - 'openid'
         - 'profile'
       CallbackURLs:
-        - 'http://localhost:5173/auth/welcome'
-        - 'https://schematicstory.com/auth/welcome'
+        - 'http://localhost:5173'
+        - 'https://schematicstory.com'
       LogoutURLs:
         - 'http://localhost:5173'
         - 'https://schematicstory.com'

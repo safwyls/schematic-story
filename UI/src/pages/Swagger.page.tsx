@@ -1,7 +1,7 @@
 import SwaggerUI from 'swagger-ui-react';
 import { Paper } from '@mantine/core';
 import { useAuthStore } from '@/store/AuthStore';
-import './swagger-ui.css'; // Import the default styles
+import '../styles/swagger-ui.css'; // Import the default styles
 
 export function SwaggerPage() {
   const { getAccessToken } = useAuthStore();
@@ -12,13 +12,11 @@ export function SwaggerPage() {
         requestInterceptor={async (req) => {
           const token = await getAccessToken(); 
           if (token) {
-            req.url = req.url.replace('https://api.schematicstory.com', '/api');
+            req.url = req.url.replace(import.meta.env.VITE_APP_API_URL, '/api');
             req.headers.Authorization = `Bearer ${token}`;
           }
           return req;
         }}
-
-
       />
     </Paper>
   );

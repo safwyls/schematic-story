@@ -2,11 +2,10 @@ import dayjs from "dayjs";
 
 export interface ShortUser {
     id: string;
-    username: string;
+    preferred_username: string;
     email: string;
     timezone: string;
     avatarUrl: string;
-    preferred_username: string;
 }
 
 export interface SchematicProps {
