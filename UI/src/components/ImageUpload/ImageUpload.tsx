@@ -2,8 +2,9 @@ import { useState, useCallback, useEffect } from 'react';
 import { Dropzone, FileWithPath, IMAGE_MIME_TYPE } from '@mantine/dropzone';
 import { Group, Stack, Progress, Alert, Image, SimpleGrid, ActionIcon, Text, Paper, Loader } from '@mantine/core';
 import { IconAlertCircle, IconPhoto, IconTrash } from '@tabler/icons-react';
-import { useAuthStore } from '@/store/AuthStore';
-import { getApiUrl } from '@/modules/api';
+import { useAuth } from '@/hooks/useAuth';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import apiClient from '@/api/client';
 
 interface ImageUploadProps {
   schematicId?: string; // For associating images with schematics (only set after schematic is created)  
@@ -33,16 +34,78 @@ interface ImageUploadProgress {
 }
 
 export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, onUploadSuccess, maxImages = 10, imageType = 'gallery', stagingMode = false }: ImageUploadProps) {
-  const { getAccessToken } = useAuthStore();
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const { idToken } = useAuth();
+  const queryClient = useQueryClient();
   const [uploads, setUploads] = useState<ImageUploadProgress[]>([]);
   const [previewImages, setPreviewImages] = useState<UploadedImage[]>([]);
 
-  useEffect(() => {
-    getAccessToken().then((token) => {
-      setAccessToken(token);
-    });
-  }, [])
+  // Mutation for requesting upload URL
+  const requestUploadUrlMutation = useMutation({
+    mutationFn: async (requestBody: any) => {
+      const endpoint = stagingMode ? '/images/upload-staged' : '/images/upload-url';
+      const response = await apiClient.post(endpoint, JSON.stringify(requestBody));
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        if (response.status === 502) {
+          throw new Error('API server is currently unavailable (502). Please try again later.');
+        } else if (response.status === 503) {
+          throw new Error('API server is temporarily unavailable (503). Please try again later.');
+        } else {
+          throw new Error(`Failed to get upload URL: ${response.status} - ${errorText}`);
+        }
+      }
+      
+      return response.json();
+    }
+  });
+
+  // Mutation for confirming upload
+  const confirmUploadMutation = useMutation({
+    mutationFn: async (imageId: string) => {
+      const confirmEndpoint = stagingMode 
+        ? `/images/${imageId}/confirm-staged` 
+        : `/images/${imageId}/confirm-upload`;
+      
+      const response = await apiClient.post(confirmEndpoint);
+      
+      if (!response.ok) {
+        throw new Error('Failed to confirm upload');
+      }
+      
+      return response.json();
+    }
+  });
+
+  // Mutation for deleting images
+  const deleteImageMutation = useMutation({
+    mutationFn: async (imageId: string) => {
+      const deleteEndpoint = stagingMode 
+        ? `/images/${imageId}/remove-staged`
+        : `/images/${imageId}`;
+      
+      const response = await fetch(deleteEndpoint);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to delete image: ${response.status} - ${errorText}`);
+      }
+      
+      return response.json();
+    },
+    onSuccess: (_, imageId) => {
+      // Remove from preview images on successful delete
+      setPreviewImages(prev => {
+        const filtered = prev.filter(img => img.id !== imageId);
+        onUploadSuccess(filtered); // Update parent
+        return filtered;
+      });
+      setUploads(prev => prev.filter(upload => upload.imageId !== imageId));
+      
+      // Optionally invalidate related queries
+      queryClient.invalidateQueries({ queryKey: ['images'] });
+    }
+  });
 
   const handleDrop = useCallback((files: FileWithPath[]) => {
     const validFiles = files.filter(file => {
@@ -73,14 +136,9 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
 
   const uploadImage = async (upload: ImageUploadProgress) => {
     try {
-      // Get fresh token when needed
-      const token = accessToken || await getAccessToken();
-      if (!token) {
+      if (!idToken) {
         throw new Error('No authentication token available');
       }
-
-      console.log('Token length:', token.length);
-      console.log('Token starts with:', token.substring(0, 20) + '...');
       
       const requestBody = {
         fileName: upload.file.name,
@@ -93,38 +151,12 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
       };
       
       console.log('Request body:', requestBody);
+      onUploadStarted();
 
-      // Step 1: Request upload URL
-      const endpoint = stagingMode ? '/images/upload-staged' : '/images/upload-url';
-      const uploadResponse = await fetch(getApiUrl(endpoint), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      console.log('Upload response status:', uploadResponse.status);
-      console.log('Upload response headers:', Object.fromEntries(uploadResponse.headers.entries()));
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.log('Error response body:', errorText);
-        
-        if (uploadResponse.status === 502) {
-          throw new Error('API server is currently unavailable (502). Please try again later.');
-        } else if (uploadResponse.status === 503) {
-          throw new Error('API server is temporarily unavailable (503). Please try again later.');
-        } else {
-          throw new Error(`Failed to get upload URL: ${uploadResponse.status} - ${errorText}`);
-        }
-      }
-
-      const { uploadUrl, imageId, fields } = await uploadResponse.json();
+      // Step 1: Request upload URL using mutation
+      const { uploadUrl, imageId, fields } = await requestUploadUrlMutation.mutateAsync(requestBody);
       console.log('Got upload URL and imageId:', imageId);
       
-      onUploadStarted();
       updateUploadProgress(upload, 20, 'uploading');
 
       // Step 2: Upload to S3 with progress tracking
@@ -152,24 +184,8 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
       console.log('S3 upload successful, updating progress to 70%');
       updateUploadProgress(upload, 70, 'processing', imageId);
 
-      // Step 3: Confirm upload and wait for processing
-      const confirmEndpoint = stagingMode 
-        ? `/images/${imageId}/confirm-staged` 
-        : `/images/${imageId}/confirm-upload`;
-
-      const confirmResponse = await fetch(getApiUrl(confirmEndpoint), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!confirmResponse.ok) {
-        throw new Error('Failed to confirm upload');
-      }
-
-      const { imageUrl, thumbnailUrl } = await confirmResponse.json();
+      // Step 3: Confirm upload using mutation
+      const { imageUrl, thumbnailUrl } = await confirmUploadMutation.mutateAsync(imageId);
 
       updateUploadProgress(upload, 100, 'complete', imageId);
 
@@ -187,6 +203,9 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
 
       // Notify parent component
       onUploadSuccess([...previewImages, newImage]);
+
+      // Invalidate related queries after successful upload
+      queryClient.invalidateQueries({ queryKey: ['images'] });
 
     } catch (error) {
       console.error('Upload failed:', error);
@@ -217,50 +236,17 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
   };
 
   const ImagePreviewItem = ({ image }: { image: UploadedImage }) => {
-    const [loading, setLoading] = useState(false);
-
     const removeImage = async (imageId: string) => {
-      try {
-        setLoading(true);
-        // Get fresh token
-        const token = accessToken || await getAccessToken();
-        if (!token) {
-          console.error('No authentication token available for delete');
-          return;
-        }
-  
-        // In staging mode, we just remove from S3 temp storage
-        const deleteEndpoint = stagingMode 
-        ? `/images/${imageId}/remove-staged`
-        : `/images/${imageId}`;
+      if (!idToken) {
+        console.error('No authentication token available for delete');
+        return;
+      }
 
-        const deleteResponse = await fetch(getApiUrl(deleteEndpoint), {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-  
-        if (!deleteResponse.ok) {
-          const errorText = await deleteResponse.text();
-          console.error('Failed to delete image:', deleteResponse.status, errorText);
-          return;
-        }
-  
+      try {
+        await deleteImageMutation.mutateAsync(imageId);
         console.log('Image deleted successfully:', imageId);
-        
-        // Remove from preview images on successful delete
-        setPreviewImages(prev => {
-          const filtered = prev.filter(img => img.id !== imageId);
-          onUploadSuccess(filtered); // Update parent
-          return filtered;
-        });
-        setUploads(prev => prev.filter(upload => upload.imageId !== imageId));
-        
       } catch (error) {
         console.error('Error deleting image:', error);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -273,7 +259,7 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
           fit="cover"
           radius="md"
         />
-        {loading && <Loader
+        {deleteImageMutation.isPending && <Loader
           size="sm"
           style={{
             position: 'absolute',

@@ -2,8 +2,6 @@
 import React from "react";
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { AuthProvider } from "react-oidc-context";
-import { useAuthStore } from "./store/AuthStore";
 
 // Store root on `window` during dev to avoid re-creating on HMR
 const root = (window as any).__root ?? ReactDOM.createRoot(document.getElementById("root")!);
@@ -18,8 +16,6 @@ const onSigninCallback = (_user: any) => {
 
 root.render(
     <React.StrictMode>
-        <AuthProvider userManager={useAuthStore.getState().userManager} onSigninCallback={onSigninCallback}>
-            <App />
-        </AuthProvider>
+        <App />
     </React.StrictMode>
 );

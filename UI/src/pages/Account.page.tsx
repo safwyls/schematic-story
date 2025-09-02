@@ -8,10 +8,11 @@ import { useDisclosure } from '@mantine/hooks';
 import { useState, useEffect } from 'react';
 import { notifications } from '@mantine/notifications';
 import classes from './Account.module.css';
-import { useAuthStore } from "@/store/AuthStore";
 import { CognitoIdentityProviderClient, ChangePasswordCommand, DeleteUserCommand, GetUserCommand } from "@aws-sdk/client-cognito-identity-provider";
 import { ImageUpload, UploadedImage } from "@/components/ImageUpload/ImageUpload";
-import { getApiUrl } from "@/modules/api";
+import apiClient from "@/api/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -22,13 +23,12 @@ const cognitoClient = new CognitoIdentityProviderClient({
 });
 
 export function AccountPage() {
-    const { user, signOut, getAccessToken } = useAuthStore();
     const [visible, { toggle }] = useDisclosure(false);    
     const [delVisible, { toggle: toggleDel }] = useDisclosure(false);
     const [delOpened, { open: delOpen, close: delClose }] = useDisclosure(false);
     const [pwOpened, { open: pwOpen, close: pwClose }] = useDisclosure(false);
     const [avatarModalOpened, { open: avatarModalOpen, close: avatarModalClose }] = useDisclosure(false);
-    const [avatarLoading, setAvatarLoading] = useState(false);
+    const [avatarUpdating, setAvatarUpdating] = useState(false);
     
     // Loading states
     const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
@@ -36,17 +36,58 @@ export function AccountPage() {
     const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
     const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(null);
     const [isLoadingAvatar, setIsLoadingAvatar] = useState(true);
+    const queryClient = useQueryClient();
+
+    const { 
+        user,
+        profile,
+        avatar,
+        avatarLoading,
+        idToken,
+        isAuthenticated,
+        logout,
+        error 
+    } = useAuth()
 
     const form = useForm({
         mode: 'uncontrolled',
         initialValues: {
-            userName: user.preferred_username,
-            email: user.email,
-            tz: user.timezone == '' || null ? dayjs.tz.guess() : user.timezone,
+            userName: profile?.preferred_username,
+            email: profile?.email,
+            tz: profile?.timezone == '' || null ? dayjs.tz.guess() : profile?.timezone,
         },
         validate: {
           email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email')
         },
+    });
+
+    const profileQuery = useQuery({
+        queryKey: ['profile'],
+        queryFn: async () => {
+            const response = await apiClient.get(`/users/${profile?.id}`)
+            return response.data
+        },
+        enabled: !!idToken,
+    });
+
+    const avatarMutation = useMutation({
+        mutationFn: async (avatarUrl: string) => {
+            const response = await apiClient.post(`/users/${profile?.id}/avatar`, { avatarUrl });
+            return response.data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['profile'] });
+        },
+    });
+
+    const updateProfileMutation = useMutation({
+        mutationFn: async (profileData: any) => {
+            const response = await apiClient.post(`/users/${profile?.id}/profile`, profileData)
+            return response.data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['profile'] });
+        }
     });
 
     const passwordForm = useForm({
@@ -85,21 +126,20 @@ export function AccountPage() {
         setIsDeletingAccount(true);
         
         try {
-            const accessToken = await getAccessToken();
-            if (!accessToken) {
+            if (!idToken) {
                 throw new Error('No access token available');
             }
 
             // First verify the user by trying to get user info with current session
             const getUserCommand = new GetUserCommand({
-                AccessToken: accessToken
+                AccessToken: idToken
             });
             
             await cognitoClient.send(getUserCommand);
 
             // If verification successful, proceed with deletion
             const deleteCommand = new DeleteUserCommand({
-                AccessToken: accessToken
+                AccessToken: idToken
             });
 
             await cognitoClient.send(deleteCommand);
@@ -112,7 +152,7 @@ export function AccountPage() {
             });
 
             // Sign out and redirect
-            signOut();
+            logout();
             
         } catch (error: any) {
             console.error('Delete account error:', error);
@@ -138,48 +178,13 @@ export function AccountPage() {
         }
     };
 
-    // Load user avatar on component mount
-    useEffect(() => {
-        const loadUserAvatar = async () => {
-            try {
-                setIsLoadingAvatar(true);
-                const response = await fetch(getApiUrl(`/users/${user.id}/avatar`));
-                
-                if (response.ok) {
-                    const avatarData = await response.json();
-                    setCurrentAvatarUrl(avatarData.thumbnailUrl || avatarData.avatarUrl);
-                } else if (response.status === 404) {
-                    // No avatar found, use default
-                    setCurrentAvatarUrl(null);
-                } else {
-                    console.error('Failed to load avatar:', response.statusText);
-                }
-            } catch (error) {
-                console.error('Error loading avatar:', error);
-            } finally {
-                setIsLoadingAvatar(false);
-            }
-        };
-
-        if (user.id) {
-            loadUserAvatar();
-        }
-    }, [user.id]);
-
     const handleAvatarUploadSuccess = async (images: UploadedImage[]) => {
         try {
-            setAvatarLoading(true);
+            setAvatarUpdating(true);
             
             // Use the new updateUserAvatar endpoint
-            const response = await fetch(getApiUrl(`/users/${user.id}/avatar`), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${await getAccessToken()}`,
-                },
-                body: JSON.stringify({
-                    imageId: images[0].id // Use the imageId from the uploaded image
-                }),
+            const response = await apiClient.post(`/users/${profile?.id}/avatar`, {
+                imageId: images[0].id // Use the imageId from the uploaded image
             });
 
             if (response.ok) {
@@ -207,7 +212,7 @@ export function AccountPage() {
                 icon: <IconAlertCircle size="1rem" />,
             });
         } finally {            
-            setAvatarLoading(false);
+            setAvatarUpdating(false);
         }
     };
 
@@ -219,17 +224,9 @@ export function AccountPage() {
             // Since Cognito user attributes updates require admin privileges,
             // you'd need to call your backend API
             
-            const response = await fetch(getApiUrl('/users/update-profile'), {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${await getAccessToken()}`,
-                },
-                body: JSON.stringify({
-                    preferred_username: values.userName,
-                    timezone: values.tz,
-                    // email updates in Cognito require verification
-                }),
+            const response = await apiClient.put('/users/update-profile', {
+                preferred_username: values.userName,
+                timezone: values.tz
             });
 
             if (!response.ok) {
@@ -260,13 +257,12 @@ export function AccountPage() {
         setIsUpdatingPassword(true);
         
         try {
-            const accessToken = await getAccessToken();
-            if (!accessToken) {
+            if (!idToken) {
                 throw new Error('No access token available');
             }
 
             const changePasswordCommand = new ChangePasswordCommand({
-                AccessToken: accessToken,
+                AccessToken: idToken,
                 PreviousPassword: values.currentPassword,
                 ProposedPassword: values.newPassword,
             });
@@ -431,8 +427,8 @@ export function AccountPage() {
             <Modal opened={avatarModalOpened} onClose={avatarModalClose} title="Upload Avatar">
                 <ImageUpload
 
-                    onUploadStarted={() => {setAvatarLoading(true); avatarModalClose();}}
-                    onUploadProgress={() => {setAvatarLoading(true);}}
+                    onUploadStarted={() => {avatarModalClose();}}
+                    onUploadProgress={() => {}}
                     onUploadSuccess={handleAvatarUploadSuccess}
                     maxImages={1}
                     imageType="avatar"
@@ -453,13 +449,13 @@ export function AccountPage() {
                         <Group mb="lg">
                             <Group align="center" onClick={avatarModalOpen} style={{ cursor: 'pointer' }}>
                                 {
-                                    (avatarLoading || isLoadingAvatar)
+                                    (avatarLoading || avatarUpdating)
                                     ?
                                         <Loader size="md" />
                                     
                                     :
                                         <Avatar 
-                                            src={currentAvatarUrl || '/src/assets/silhouette.png'} 
+                                            src={avatar ? avatar.avatarUrl : '/src/assets/silhouette.png'} 
                                             size={80}
                                             radius="xl"
                                         >
@@ -469,7 +465,7 @@ export function AccountPage() {
                                 <Stack gap="xs">
                                     <Text fw={500}>Profile Picture</Text>
                                     <Text size="sm" c="dimmed">
-                                        {currentAvatarUrl ? 'Click to change avatar' : 'Click to upload avatar'} (max 10MB)
+                                        {avatar ? 'Click to change avatar' : 'Click to upload avatar'} (max 10MB)
                                     </Text>
                                 </Stack>
                             </Group>

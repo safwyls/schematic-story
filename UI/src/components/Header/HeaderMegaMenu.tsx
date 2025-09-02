@@ -42,11 +42,8 @@ import SchematicStoryLogo from "@/assets/schematicstory.svg?react";
 import classes from './HeaderMegaMenu.module.css';
 import { ColorSchemeToggle } from '../ColorSchemeToggle/ColorSchemeToggle';
 import { Link } from 'react-router-dom';
-import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '@/store/AuthStore';
-import { useEffect, useState } from 'react';
-import { getApiUrl } from '@/modules/api';
+import { useAuth } from '../../hooks/useAuth'
 
 const mockdata = [
   {
@@ -82,15 +79,22 @@ const mockdata = [
 ];
 
 export function HeaderMegaMenu() {
-  const { user, authenticated } = useAuthStore();
   const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false);
   const [linksOpened, { toggle: toggleLinks }] = useDisclosure(false);
   const [userMenuOpened, { toggle: toggleUserMenu }] = useDisclosure(false);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const theme = useMantineTheme();
   const auth = useAuth();
   const navigate = useNavigate();
-
+  const { 
+    user, 
+    profile, 
+    isAuthenticated, 
+    loading,
+    login,
+    logout,
+    error 
+  } = useAuth()
+  const username = user?.profile.preferred_username;
   
   const signOutRedirect = async () => {    
     // Remove the user from local session
@@ -101,42 +105,13 @@ export function HeaderMegaMenu() {
     window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
   };
 
-  const signInRedirect = () => {
-    auth.signinRedirect();
-  }
-
-  const signInRedirectTo = (redirectPath: string) => {
+  const loginRedirectTo = (redirectPath: string) => {
     const redirectUri = `${window.location.origin}${redirectPath}`;
     
-    auth.signinRedirect({
+    login({
       redirect_uri: redirectUri
     });
   }
-
-  // Load user avatar on component mount
-  useEffect(() => {    
-    const loadUserAvatar = async () => {
-        try {
-            const response = await fetch(getApiUrl(`/users/${user.id}/avatar`));
-                        
-            if (response.ok) {
-                const avatarData = await response.json();
-                setAvatarUrl(avatarData.thumbnailUrl || avatarData.avatarUrl);
-            } else if (response.status === 404) {
-                // No avatar found, use default
-                setAvatarUrl(null);
-            } else {
-                console.error('Failed to load avatar:', response.statusText);
-            }
-        } catch (error) {
-            console.error('Error loading avatar:', error);            
-        }
-    };
-
-    if (user.id) {
-      loadUserAvatar();
-    }
-  }, [user.id]);
   
   const navigateTo = (path: string) => {
     closeDrawer();
@@ -144,10 +119,10 @@ export function HeaderMegaMenu() {
   }
 
   const uploadRedirect = () => {
-    if (authenticated) {
+    if (auth.isAuthenticated) {
       navigate('/upload');
     } else {
-      signInRedirectTo('/upload');
+      loginRedirectTo('/upload');
     }
   }
 
@@ -238,7 +213,7 @@ export function HeaderMegaMenu() {
           <Group visibleFrom="md">
             <ColorSchemeToggle />
             
-            {authenticated 
+            {auth.isAuthenticated 
               ?
                 <Menu
                   width={260}
@@ -252,9 +227,9 @@ export function HeaderMegaMenu() {
                       className={cx(classes.user, { [classes.userActive]: userMenuOpened })}
                     >
                       <Group gap={7}>
-                        <Avatar src={avatarUrl} alt={user.preferred_username} radius="xl" size={20} />
+                        <Avatar src={auth.user?.profile?.picture} alt={username} radius="xl" size={20} />
                         <Text fw={500} size="sm" lh={1} mr={3}>
-                          {user.preferred_username}
+                          {username}
                         </Text>
                         <IconChevronDown size={12} stroke={1.5} />
                       </Group>
@@ -262,19 +237,19 @@ export function HeaderMegaMenu() {
                   </Menu.Target>
                   <Menu.Dropdown>
                     <Menu.Item
-                      onClick={() => navigate('/profile/' + user.preferred_username + '/schematics')}
+                      onClick={() => navigate('/profile/' + username + '/schematics')}
                       leftSection={<IconHeart size={16} color={theme.colors.red[6]} stroke={1.5} />}
                     >
                       Followed schematics
                     </Menu.Item>                
                     <Menu.Item
-                      onClick={() => navigate('/profile/' + user.preferred_username + '/users')}
+                      onClick={() => navigate('/profile/' + username + '/users')}
                       leftSection={<IconUser size={16} color={theme.colors.blue[6]} stroke={1.5} />}
                     >
                       Followed seraphs
                     </Menu.Item>
                     <Menu.Item
-                      onClick={() => navigate('/profile/' + user.preferred_username + '/comments')}
+                      onClick={() => navigate('/profile/' + username + '/comments')}
                       leftSection={<IconMessage size={16} color={theme.colors.yellow[6]} stroke={1.5} />}
                     >
                       Your comments
@@ -298,11 +273,11 @@ export function HeaderMegaMenu() {
                 </Menu>
               :
                 <UnstyledButton 
-                  onClick={signInRedirect}
+                  onClick={login}
                   className={cx(classes.user, { [classes.userActive]: userMenuOpened })}
                 >
                   <Group gap={7}>
-                    <Avatar src="src/assets/silhouette.png" alt="Login button" radius="xl" size={20} />                        
+                    <IconLogin size={16} stroke={1.5} />
                     <Text fw={500} size="sm" lh={1} mr={3}>
                       Login
                     </Text>
@@ -386,7 +361,7 @@ export function HeaderMegaMenu() {
               :
                 <NavLink 
                   label="Login"
-                  onClick={signInRedirect}
+                  onClick={login}
                   leftSection={<Avatar src="src/assets/silhouette.png" alt="Login button" radius="xl" size={20} />}
                 />
             }
