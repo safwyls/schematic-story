@@ -141,6 +141,41 @@ export const confirmStagedImageUpload = async (event: APIGatewayProxyEvent): Pro
       };
     }
 
+    // Get image record from DynamoDB
+    const getItemResponse = await dynamoClient.send(new QueryCommand({
+      TableName: process.env.TABLE_NAME!,
+      KeyConditionExpression: 'PK = :pk AND SK = :sk',
+      ExpressionAttributeValues: marshall({
+        ':pk': `IMAGE#${imageId}`,
+        ':sk': 'METADATA'
+      })
+    }));
+
+    if (!getItemResponse.Items || getItemResponse.Items.length === 0) {
+      return {
+        statusCode: 404,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Image not found' })
+      };
+    }
+
+    const imageRecord = unmarshall(getItemResponse.Items[0]);
+
+    // Verify user owns the image
+    if (imageRecord.UploaderId !== userId) {
+      return {
+        statusCode: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Unauthorized' })
+      };
+    }
+
     // Update staged image status
     await dynamoClient.send(new UpdateItemCommand({
       TableName: process.env.TABLE_NAME!,
@@ -159,8 +194,7 @@ export const confirmStagedImageUpload = async (event: APIGatewayProxyEvent): Pro
     }));
 
     // Generate temporary CloudFront URL (expires in 24 hours)
-    const stagingDomain = process.env.CLOUDFRONT_STAGING_DOMAIN || process.env.CLOUDFRONT_IMAGES_DOMAIN;
-    const imageUrl = `https://${stagingDomain}/staging/${userId}/${imageId}`;
+    const imageUrl = `https://${process.env.CLOUDFRONT_IMAGES_DOMAIN}/${imageRecord.S3Key}`;
 
     return {
       statusCode: 200,
@@ -190,7 +224,7 @@ export const confirmStagedImageUpload = async (event: APIGatewayProxyEvent): Pro
 };
 
 // Remove staged image (cleanup before TTL)
-export const deleteStagedImage = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+export const removeStagedImage = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     const imageId = event.pathParameters?.imageId;
     const userId = event.requestContext.authorizer?.claims?.sub;
