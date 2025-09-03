@@ -190,7 +190,7 @@ export const confirmStagedImageUpload = async (event: APIGatewayProxyEvent): Pro
 };
 
 // Remove staged image (cleanup before TTL)
-export const removeStagedImage = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+export const deleteStagedImage = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     const imageId = event.pathParameters?.imageId;
     const userId = event.requestContext.authorizer?.claims?.sub;
