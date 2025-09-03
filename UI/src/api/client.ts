@@ -48,6 +48,8 @@ class ApiClient {
           } catch (error) {
             console.error('Failed to get access token:', error)
           }
+        } else {
+          console.log('No token getter set')
         }
         return config
       },
@@ -67,22 +69,22 @@ class ApiClient {
 
   async get<T = any>(url: string, config?: InternalAxiosRequestConfig): Promise<T> {
     const response = await this.client.get<ApiResponse<T>>(url, config)
-    return response.data.data
+    return response.data as T
   }
 
   async post<T = any>(url: string, data?: any, config?: InternalAxiosRequestConfig): Promise<T> {
     const response = await this.client.post<ApiResponse<T>>(url, data, config)
-    return response.data.data
+    return response.data as T
   }
 
   async put<T = any>(url: string, data?: any, config?: InternalAxiosRequestConfig): Promise<T> {
     const response = await this.client.put<ApiResponse<T>>(url, data, config)
-    return response.data.data
+    return response.data as T
   }
 
   async delete<T = any>(url: string, config?: InternalAxiosRequestConfig): Promise<T> {
     const response = await this.client.delete<ApiResponse<T>>(url, config)
-    return response.data.data
+    return response.data as T
   }
 }
 

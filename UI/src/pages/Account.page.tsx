@@ -40,7 +40,8 @@ export function AccountPage() {
 
     const { 
         user,
-        profile,
+        userId,
+        userProfile,     
         avatar,
         avatarLoading,
         idToken,
@@ -52,27 +53,27 @@ export function AccountPage() {
     const form = useForm({
         mode: 'uncontrolled',
         initialValues: {
-            userName: profile?.preferred_username,
-            email: profile?.email,
-            tz: profile?.timezone == '' || null ? dayjs.tz.guess() : profile?.timezone,
+            userName: userProfile?.preferred_username,
+            email: userProfile?.email,
+            tz: userProfile?.tz == '' || null ? dayjs.tz.guess() : userProfile?.tz,
         },
         validate: {
-          email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email')
+          email: (value) => value ? (/^\S+@\S+$/.test(value) ? null : 'Invalid email') : null,
         },
     });
 
-    const profileQuery = useQuery({
-        queryKey: ['profile'],
-        queryFn: async () => {
-            const response = await apiClient.get(`/users/${profile?.id}`)
-            return response.data
-        },
-        enabled: !!idToken,
-    });
+    // const profileQuery = useQuery({
+    //     queryKey: ['profile'],
+    //     queryFn: async () => {
+    //         const response = await apiClient.get(`/users/${userId}`)
+    //         return response.data
+    //     },
+    //     enabled: !!idToken,
+    // });
 
     const avatarMutation = useMutation({
-        mutationFn: async (avatarUrl: string) => {
-            const response = await apiClient.post(`/users/${profile?.id}/avatar`, { avatarUrl });
+        mutationFn: async (imageId: string) => {
+            const response = await apiClient.post(`/users/${userId}/avatar`, { imageId });
             return response.data
         },
         onSuccess: () => {
@@ -80,15 +81,15 @@ export function AccountPage() {
         },
     });
 
-    const updateProfileMutation = useMutation({
-        mutationFn: async (profileData: any) => {
-            const response = await apiClient.post(`/users/${profile?.id}/profile`, profileData)
-            return response.data
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['profile'] });
-        }
-    });
+    // const updateProfileMutation = useMutation({
+    //     mutationFn: async (profileData: any) => {
+    //         const response = await apiClient.post(`/users/${userId}/profile`, profileData)
+    //         return response.data
+    //     },
+    //     onSuccess: () => {
+    //         queryClient.invalidateQueries({ queryKey: ['profile'] });
+    //     }
+    // });
 
     const passwordForm = useForm({
         mode: 'uncontrolled',
@@ -183,9 +184,12 @@ export function AccountPage() {
             setAvatarUpdating(true);
             
             // Use the new updateUserAvatar endpoint
-            const response = await apiClient.post(`/users/${profile?.id}/avatar`, {
-                imageId: images[0].id // Use the imageId from the uploaded image
-            });
+            // const response = await apiClient.post(`/users/${userId}/avatar`, {
+            //     imageId: images[0].id // Use the imageId from the uploaded image
+            // });
+
+            const response = await avatarMutation.mutateAsync(images[0].id);
+            console.log(response);
 
             if (response.ok) {
                 const result = await response.json();
@@ -304,7 +308,7 @@ export function AccountPage() {
     };
 
     return (
-        <Container>            
+        <Container>
             <Modal opened={delOpened} onClose={delClose} title="Account Deletion">
                 <LoadingOverlay visible={isDeletingAccount} />
                 <form onSubmit={deleteForm.onSubmit(deleteUserAccount)}>
@@ -441,7 +445,7 @@ export function AccountPage() {
                 </Grid.Col>
                 
                 <Grid.Col span={12}>
-                    <Card>
+                    <Card>  
                         <LoadingOverlay visible={isUpdatingProfile} />
                         <Title order={3} pb="1em">User Details</Title>
                         <form onSubmit={form.onSubmit(handleUserUpdate)}>
@@ -451,8 +455,7 @@ export function AccountPage() {
                                 {
                                     (avatarLoading || avatarUpdating)
                                     ?
-                                        <Loader size="md" />
-                                    
+                                        <Loader size="md" />                                    
                                     :
                                         <Avatar 
                                             src={avatar ? avatar.avatarUrl : '/src/assets/silhouette.png'} 
@@ -460,7 +463,7 @@ export function AccountPage() {
                                             radius="xl"
                                         >
                                             <IconUser size="2rem" />
-                                        </Avatar>
+                                        </Avatar>                                    
                                 }
                                 <Stack gap="xs">
                                     <Text fw={500}>Profile Picture</Text>

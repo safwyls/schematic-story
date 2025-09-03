@@ -6,7 +6,6 @@ import apiClient from '../api/client'
 
 const authKeys = {
   user: ['auth', 'user'],
-  profile: ['auth', 'profile'],
   avatar: ['auth', 'avatar'],
 }
 
@@ -16,32 +15,19 @@ export const useAuth = () => {
 
   // Set up token getter for axios interceptor
   useEffect(() => {
-    if (oidc.user?.access_token) {
-      apiClient.setTokenGetter(() => Promise.resolve(oidc.user?.access_token ?? null))
+    if (oidc.user?.id_token) {
+      apiClient.setTokenGetter(() => Promise.resolve(oidc.user?.id_token ?? null))
     }
-  }, [oidc.user?.access_token])
-
-  // Fetch additional user data from dynamodb via api gateway
-  const userProfileQuery = useQuery({
-    queryKey: authKeys.profile,
-    queryFn: async () => {
-      const userId = oidc.user?.profile?.sub;
-      if (userId) {
-        const response = await apiClient.get(`/users/${userId}/profile`)
-        return response.data
-      }
-    },
-    enabled: !!oidc.user && !oidc.isLoading,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-  })
+  }, [oidc.user?.id_token])
 
   const userAvatarQuery = useQuery({
     queryKey: authKeys.avatar,
     queryFn: async () => {
       const userId = oidc.user?.profile?.sub;
+      console.log(oidc.user);
       if (userId) {
-        const response = await apiClient.get(`/users/${userId}/avatar`)
-        return response.data
+        const data = await apiClient.get(`/users/${userId}/avatar`);
+        return data;
       }
     },
     enabled: !!oidc.user && !oidc.isLoading,
@@ -63,7 +49,7 @@ export const useAuth = () => {
   // Enhanced logout that clears TanStack Query cache
   const logout = async () => {
     queryClient.clear()
-    await oidc.signoutRedirect()
+    await signoutRedirect()
   }
 
   // Silent token refresh
@@ -76,17 +62,23 @@ export const useAuth = () => {
     }
   }
 
+  const signoutRedirect = async () => {    
+    // Remove the user from local session
+    await oidc.removeUser();
+    const clientId = import.meta.env.VITE_APP_CLIENT_ID;
+    const logoutUri = import.meta.env.VITE_APP_REDIR;
+    const cognitoDomain = import.meta.env.VITE_APP_AUTH_DOMAIN;
+    window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
+  };
+
   return {
     // OIDC state
     user: oidc.user,
+    userId: oidc.user?.profile?.sub,
+    userProfile: oidc.user?.profile,
     isLoading: oidc.isLoading,
     isAuthenticated: oidc.isAuthenticated,
     error: oidc.error,
-    
-    // Additional profile data from your API
-    profile: userProfileQuery.data,
-    profileLoading: userProfileQuery.isLoading,
-    profileError: userProfileQuery.error,
 
     avatar: userAvatarQuery.data,
     avatarLoading: userAvatarQuery.isLoading,
@@ -106,6 +98,6 @@ export const useAuth = () => {
     idToken: oidc.user?.id_token,
     
     // Combined loading state
-    loading: oidc.isLoading || userProfileQuery.isLoading || userAvatarQuery.isLoading,
+    loading: oidc.isLoading || userAvatarQuery.isLoading,
   }
 }

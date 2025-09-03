@@ -27,6 +27,7 @@ import {
   Drawer,
   Group,
   HoverCard,
+  Loader,
   Menu,
   NavLink,
   ScrollArea,
@@ -86,24 +87,14 @@ export function HeaderMegaMenu() {
   const auth = useAuth();
   const navigate = useNavigate();
   const { 
-    user, 
-    profile, 
-    isAuthenticated, 
-    loading,
+    user,
+    avatar,
+    avatarLoading,
+    isAuthenticated,
     login,
-    logout,
-    error 
+    logout
   } = useAuth()
   const username = user?.profile.preferred_username;
-  
-  const signOutRedirect = async () => {    
-    // Remove the user from local session
-    await auth.removeUser();
-    const clientId = import.meta.env.VITE_APP_CLIENT_ID;
-    const logoutUri = import.meta.env.VITE_APP_REDIR;
-    const cognitoDomain = import.meta.env.VITE_APP_AUTH_DOMAIN;
-    window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
-  };
 
   const loginRedirectTo = (redirectPath: string) => {
     const redirectUri = `${window.location.origin}${redirectPath}`;
@@ -213,7 +204,7 @@ export function HeaderMegaMenu() {
           <Group visibleFrom="md">
             <ColorSchemeToggle />
             
-            {auth.isAuthenticated 
+            {isAuthenticated 
               ?
                 <Menu
                   width={260}
@@ -227,7 +218,10 @@ export function HeaderMegaMenu() {
                       className={cx(classes.user, { [classes.userActive]: userMenuOpened })}
                     >
                       <Group gap={7}>
-                        <Avatar src={auth.user?.profile?.picture} alt={username} radius="xl" size={20} />
+                        {avatarLoading 
+                          ? <Loader size="xs" />
+                          : <Avatar src={avatar?.thumbnailUrl} alt={username} radius="xl" size={20} />
+                        }
                         <Text fw={500} size="sm" lh={1} mr={3}>
                           {username}
                         </Text>
@@ -265,7 +259,7 @@ export function HeaderMegaMenu() {
                     
                     <Menu.Item 
                       leftSection={<IconLogout size={16} stroke={1.5} />}
-                      onClick={signOutRedirect} 
+                      onClick={logout} 
                     >
                       Logout
                     </Menu.Item>
@@ -334,7 +328,7 @@ export function HeaderMegaMenu() {
           <Divider my="sm" />
 
           <Stack justify="center">
-            {auth.isAuthenticated 
+            {isAuthenticated 
               ? 
               <>
                 <NavLink
@@ -354,7 +348,7 @@ export function HeaderMegaMenu() {
                 />
                 <NavLink 
                   label="Logout"
-                  onClick={signOutRedirect}
+                  onClick={logout}
                   leftSection={<IconLogout size={16} stroke={1.5} />}
                 />
               </>
@@ -362,7 +356,7 @@ export function HeaderMegaMenu() {
                 <NavLink 
                   label="Login"
                   onClick={login}
-                  leftSection={<Avatar src="src/assets/silhouette.png" alt="Login button" radius="xl" size={20} />}
+                  leftSection={<Avatar src="" alt="Login button" radius="xl" size={20} />}
                 />
             }
             <ColorSchemeToggle mobile/>

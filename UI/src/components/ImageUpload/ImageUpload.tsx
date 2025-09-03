@@ -42,21 +42,11 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
   // Mutation for requesting upload URL
   const requestUploadUrlMutation = useMutation({
     mutationFn: async (requestBody: any) => {
-      const endpoint = stagingMode ? '/images/upload-staged' : '/images/upload-url';
-      const response = await apiClient.post(endpoint, JSON.stringify(requestBody));
+      const endpoint = stagingMode ? '/images/staged/upload-url' : '/images/upload-url';
+      const response = await apiClient.post(endpoint, requestBody);
+      console.log(response)
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 502) {
-          throw new Error('API server is currently unavailable (502). Please try again later.');
-        } else if (response.status === 503) {
-          throw new Error('API server is temporarily unavailable (503). Please try again later.');
-        } else {
-          throw new Error(`Failed to get upload URL: ${response.status} - ${errorText}`);
-        }
-      }
-      
-      return response.json();
+      return response;
     }
   });
 
@@ -64,16 +54,12 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
   const confirmUploadMutation = useMutation({
     mutationFn: async (imageId: string) => {
       const confirmEndpoint = stagingMode 
-        ? `/images/${imageId}/confirm-staged` 
+        ? `/images/${imageId}/confirm-staged`
         : `/images/${imageId}/confirm-upload`;
       
       const response = await apiClient.post(confirmEndpoint);
       
-      if (!response.ok) {
-        throw new Error('Failed to confirm upload');
-      }
-      
-      return response.json();
+      return response;
     }
   });
 
@@ -84,14 +70,9 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
         ? `/images/${imageId}/remove-staged`
         : `/images/${imageId}`;
       
-      const response = await fetch(deleteEndpoint);
+      const response = await apiClient.delete(deleteEndpoint);
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to delete image: ${response.status} - ${errorText}`);
-      }
-      
-      return response.json();
+      return response;
     },
     onSuccess: (_, imageId) => {
       // Remove from preview images on successful delete
