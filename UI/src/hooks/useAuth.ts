@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import apiClient from '../api/client'
 
-const authKeys = {
+export const authKeys = {
   user: ['auth', 'user'],
   avatar: ['auth', 'avatar'],
 }
@@ -24,7 +24,6 @@ export const useAuth = () => {
     queryKey: authKeys.avatar,
     queryFn: async () => {
       const userId = oidc.user?.profile?.sub;
-      console.log(oidc.user);
       if (userId) {
         const data = await apiClient.get(`/users/${userId}/avatar`);
         return data;

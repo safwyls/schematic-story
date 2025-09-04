@@ -1,9 +1,9 @@
-import { Autocomplete, Button, Card, Center, Container, Grid, Group, Modal, PasswordInput, Space, Stack, TextInput, Title, Typography, Alert, LoadingOverlay, Avatar, Text, Loader } from "@mantine/core"; 
+import { Autocomplete, Button, Card, Center, Container, Grid, Group, Modal, PasswordInput, Space, Stack, TextInput, Title, Typography, Alert, LoadingOverlay, Avatar, Text, Loader, Box } from "@mantine/core"; 
 import { useForm } from '@mantine/form';
 import dayjs from 'dayjs';
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
-import { IconKey, IconTrash, IconAlertCircle, IconCheck, IconUser, IconUpload } from "@tabler/icons-react";
+import { IconKey, IconTrash, IconAlertCircle, IconCheck, IconUser, IconUpload, IconLogin } from "@tabler/icons-react";
 import { useDisclosure } from '@mantine/hooks';
 import { useState, useEffect } from 'react';
 import { notifications } from '@mantine/notifications';
@@ -11,7 +11,7 @@ import classes from './Account.module.css';
 import { CognitoIdentityProviderClient, ChangePasswordCommand, DeleteUserCommand, GetUserCommand } from "@aws-sdk/client-cognito-identity-provider";
 import { ImageUpload, UploadedImage } from "@/components/ImageUpload/ImageUpload";
 import apiClient from "@/api/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, authKeys } from '@/hooks/useAuth';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 dayjs.extend(utc);
@@ -35,7 +35,6 @@ export function AccountPage() {
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
     const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(null);
-    const [isLoadingAvatar, setIsLoadingAvatar] = useState(true);
     const queryClient = useQueryClient();
 
     const { 
@@ -46,8 +45,9 @@ export function AccountPage() {
         avatarLoading,
         idToken,
         isAuthenticated,
+        login,
         logout,
-        error 
+        error
     } = useAuth()
 
     const form = useForm({
@@ -62,6 +62,12 @@ export function AccountPage() {
         },
     });
 
+    useEffect(() => {
+        if (avatarUpdating) {
+            setAvatarUpdating(false);
+        }
+    }, [avatar]);
+
     // const profileQuery = useQuery({
     //     queryKey: ['profile'],
     //     queryFn: async () => {
@@ -73,11 +79,13 @@ export function AccountPage() {
 
     const avatarMutation = useMutation({
         mutationFn: async (imageId: string) => {
-            const response = await apiClient.post(`/users/${userId}/avatar`, { imageId });
-            return response.data
+            const data = await apiClient.post(`/users/${userId}/avatar`, { imageId });
+            return data
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['profile'] });
+            queryClient.invalidateQueries({ queryKey: ['user'] });
+            queryClient.invalidateQueries({ queryKey: authKeys.avatar });
         },
     });
 
@@ -179,21 +187,17 @@ export function AccountPage() {
         }
     };
 
+    const handleAvatarUploadStarted = () => {
+        avatarModalClose();
+        setAvatarUpdating(true);
+    };
+
     const handleAvatarUploadSuccess = async (images: UploadedImage[]) => {
         try {
-            setAvatarUpdating(true);
-            
-            // Use the new updateUserAvatar endpoint
-            // const response = await apiClient.post(`/users/${userId}/avatar`, {
-            //     imageId: images[0].id // Use the imageId from the uploaded image
-            // });
-
             const response = await avatarMutation.mutateAsync(images[0].id);
-            console.log(response);
 
-            if (response.ok) {
-                const result = await response.json();
-                setCurrentAvatarUrl(result.thumbnailUrl || result.avatarUrl);
+            if (response != null && response.avatarUrl != null) {
+                setCurrentAvatarUrl(response.thumbnailUrl || response.avatarUrl);
                 
                 notifications.show({
                     title: 'Avatar Updated',
@@ -215,8 +219,6 @@ export function AccountPage() {
                 color: 'red',
                 icon: <IconAlertCircle size="1rem" />,
             });
-        } finally {            
-            setAvatarUpdating(false);
         }
     };
 
@@ -431,8 +433,8 @@ export function AccountPage() {
             <Modal opened={avatarModalOpened} onClose={avatarModalClose} title="Upload Avatar">
                 <ImageUpload
 
-                    onUploadStarted={() => {avatarModalClose();}}
-                    onUploadProgress={() => {}}
+                    onUploadStarted={handleAvatarUploadStarted}
+                    onUploadProgress={()  => {}}
                     onUploadSuccess={handleAvatarUploadSuccess}
                     maxImages={1}
                     imageType="avatar"
@@ -445,26 +447,24 @@ export function AccountPage() {
                 </Grid.Col>
                 
                 <Grid.Col span={12}>
-                    <Card>  
+                    <Card>
                         <LoadingOverlay visible={isUpdatingProfile} />
                         <Title order={3} pb="1em">User Details</Title>
                         <form onSubmit={form.onSubmit(handleUserUpdate)}>
                             
                         <Group mb="lg">
                             <Group align="center" onClick={avatarModalOpen} style={{ cursor: 'pointer' }}>
-                                {
-                                    (avatarLoading || avatarUpdating)
-                                    ?
-                                        <Loader size="md" />                                    
-                                    :
-                                        <Avatar 
-                                            src={avatar ? avatar.avatarUrl : '/src/assets/silhouette.png'} 
-                                            size={80}
-                                            radius="xl"
-                                        >
-                                            <IconUser size="2rem" />
-                                        </Avatar>                                    
-                                }
+                                <Box pos="relative">
+                                    <LoadingOverlay visible={avatarLoading || avatarUpdating} />
+                                    <Avatar  pos="relative"
+                                        src={avatar ? avatar.avatarUrl : '/src/assets/silhouette.png'} 
+                                        size={80}
+                                        radius="xl"
+                                    >
+                                        
+                                        <IconUser size="2rem" />
+                                    </Avatar>
+                                </Box>
                                 <Stack gap="xs">
                                     <Text fw={500}>Profile Picture</Text>
                                     <Text size="sm" c="dimmed">

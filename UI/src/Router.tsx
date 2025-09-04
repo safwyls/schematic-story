@@ -11,6 +11,7 @@ import { AccountPage } from './pages/Account.page';
 import { UploadPage } from './pages/Upload.page';
 import { ProfilePage } from './pages/Profile.page';
 import { SwaggerPage } from './pages/Swagger.page';
+import { ProtectedRoute } from './components/ProtectedRoute/ProtectedRoute';
 
 function ScrollToHashElement() {
   const location = useLocation();
@@ -46,8 +47,8 @@ export const router = createBrowserRouter([
       { path: '/', element: <HomePage /> },
       { path: '/schematics', element: <SchematicsPage /> },
       { path: '/schematic/:id', element: <SchematicDetailsPage /> },
-      { path: '/account', element: <AccountPage />},      
-      { path: '/upload', element: <UploadPage />},
+      { path: '/account', element: <ProtectedRoute><AccountPage /></ProtectedRoute> },      
+      { path: '/upload', element: <ProtectedRoute><UploadPage /></ProtectedRoute> },
       { path: '/profile/:username/:tab?', element: <ProfilePage />},
       { path: '/swagger', element: <SwaggerPage />},
       { path: '/auth/welcome', element: <HomePage />},

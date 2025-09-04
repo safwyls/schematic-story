@@ -109,14 +109,6 @@ export function HeaderMegaMenu() {
     navigate(path);
   }
 
-  const uploadRedirect = () => {
-    if (auth.isAuthenticated) {
-      navigate('/upload');
-    } else {
-      loginRedirectTo('/upload');
-    }
-  }
-
   const links = mockdata.map((item) => (
     <UnstyledButton className={classes.subLink} key={item.title}  onClick={() => navigateTo(item.url)}>
       <Group wrap="nowrap" align="flex-start">
@@ -181,7 +173,7 @@ export function HeaderMegaMenu() {
                           Upload your creation!
                         </Text>
                       </div>
-                      <Button variant="default" onClick={uploadRedirect}>Upload</Button>
+                      <Button variant="default" onClick={() => navigate('/upload')}>Upload</Button>
                     </Group>
                   </div>
                 </HoverCard.Dropdown>

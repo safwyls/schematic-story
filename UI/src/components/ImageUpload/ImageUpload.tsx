@@ -43,9 +43,7 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
   const requestUploadUrlMutation = useMutation({
     mutationFn: async (requestBody: any) => {
       const endpoint = stagingMode ? '/images/staged/upload-url' : '/images/upload-url';
-      const response = await apiClient.post(endpoint, requestBody);
-      console.log(response)
-      
+      const response = await apiClient.post(endpoint, requestBody);      
       return response;
     }
   });
@@ -54,9 +52,10 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
   const confirmUploadMutation = useMutation({
     mutationFn: async (imageId: string) => {
       const confirmEndpoint = stagingMode 
-        ? `/images/${imageId}/confirm-staged`
+        ? `/images/staged/${imageId}/confirm-upload`
         : `/images/${imageId}/confirm-upload`;
       
+
       const response = await apiClient.post(confirmEndpoint);
       
       return response;
@@ -67,7 +66,7 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
   const deleteImageMutation = useMutation({
     mutationFn: async (imageId: string) => {
       const deleteEndpoint = stagingMode 
-        ? `/images/${imageId}/remove-staged`
+        ? `/images/staged/${imageId}`
         : `/images/${imageId}`;
       
       const response = await apiClient.delete(deleteEndpoint);
@@ -131,17 +130,14 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
         staged: stagingMode
       };
       
-      console.log('Request body:', requestBody);
       onUploadStarted();
 
       // Step 1: Request upload URL using mutation
       const { uploadUrl, imageId, fields } = await requestUploadUrlMutation.mutateAsync(requestBody);
-      console.log('Got upload URL and imageId:', imageId);
       
       updateUploadProgress(upload, 20, 'uploading');
 
-      // Step 2: Upload to S3 with progress tracking
-      console.log('Starting S3 upload...');
+      // Step 2: Upload to S3 with progress tracking (use fetch)
       const formData = new FormData();
       Object.entries(fields).forEach(([key, value]) => {
         formData.append(key, value as string);
@@ -153,16 +149,11 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
         body: formData,
       });
 
-      console.log('S3 response status:', s3Response.status);
-      console.log('S3 response headers:', Object.fromEntries(s3Response.headers.entries()));
-
       if (!s3Response.ok) {
         const s3ErrorText = await s3Response.text();
-        console.log('S3 error response:', s3ErrorText);
         throw new Error(`Failed to upload to S3: ${s3Response.status} - ${s3ErrorText}`);
       }
 
-      console.log('S3 upload successful, updating progress to 70%');
       updateUploadProgress(upload, 70, 'processing', imageId);
 
       // Step 3: Confirm upload using mutation
@@ -181,6 +172,9 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
       };
 
       setPreviewImages(prev => [...prev, newImage]);
+
+      // Remove from uploads list
+      setUploads(prev => prev.filter(upload => upload.file.name !== upload.file.name));
 
       // Notify parent component
       onUploadSuccess([...previewImages, newImage]);
@@ -201,22 +195,19 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
     imageId?: string,
     error?: string
   ) => {
-    console.log(`Updating progress for ${targetUpload.file.name} to ${progress}%`);
     setUploads(prev => {
       const updated = prev.map(upload => {
         const isMatch = upload.file.name === targetUpload.file.name && upload.file.size === targetUpload.file.size;
-        console.log(`Checking ${upload.file.name}: ${isMatch ? 'MATCH' : 'no match'}`);
         return isMatch
           ? { ...upload, progress, status, imageId, error }
           : upload;
       });
-      console.log('Updated uploads state:', updated);
       return updated;
     });
     onUploadProgress(progress);
   };
 
-  const ImagePreviewItem = ({ image }: { image: UploadedImage }) => {
+  const ImagePreviewItem = ({ image }: { image: UploadedImage }) => {    
     const removeImage = async (imageId: string) => {
       if (!idToken) {
         console.error('No authentication token available for delete');
@@ -225,7 +216,6 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
 
       try {
         await deleteImageMutation.mutateAsync(imageId);
-        console.log('Image deleted successfully:', imageId);
       } catch (error) {
         console.error('Error deleting image:', error);
       }
@@ -240,7 +230,7 @@ export function ImageUpload({ schematicId, onUploadStarted, onUploadProgress, on
           fit="cover"
           radius="md"
         />
-        {deleteImageMutation.isPending && <Loader
+        {deleteImageMutation.isPending && deleteImageMutation.variables === image.id && <Loader
           size="sm"
           style={{
             position: 'absolute',
