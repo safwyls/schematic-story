@@ -57,7 +57,7 @@ export const getStagedImageUploadUrl = async (event: APIGatewayProxyEvent): Prom
     const ttl = Math.floor(Date.now() / 1000) + (24 * 60 * 60); // 24 hours from now
     
     // Use staging folder in S3
-    const s3Key = `staging/${userId}/${imageId}-${fileName}`;
+    const s3Key = `staging/${userId}/${imageId}`;
 
     // Create presigned POST URL for staging bucket/folder
     const maxFileSize = parseInt(process.env.MAX_IMAGE_SIZE_MB || '10') * 1024 * 1024;
@@ -141,41 +141,6 @@ export const confirmStagedImageUpload = async (event: APIGatewayProxyEvent): Pro
       };
     }
 
-    // Get image record from DynamoDB
-    const getItemResponse = await dynamoClient.send(new QueryCommand({
-      TableName: process.env.TABLE_NAME!,
-      KeyConditionExpression: 'PK = :pk AND SK = :sk',
-      ExpressionAttributeValues: marshall({
-        ':pk': `IMAGE#${imageId}`,
-        ':sk': 'METADATA'
-      })
-    }));
-
-    if (!getItemResponse.Items || getItemResponse.Items.length === 0) {
-      return {
-        statusCode: 404,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify({ error: 'Image not found' })
-      };
-    }
-
-    const imageRecord = unmarshall(getItemResponse.Items[0]);
-
-    // Verify user owns the image
-    if (imageRecord.UploaderId !== userId) {
-      return {
-        statusCode: 403,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify({ error: 'Unauthorized' })
-      };
-    }
-
     // Update staged image status
     await dynamoClient.send(new UpdateItemCommand({
       TableName: process.env.TABLE_NAME!,
@@ -194,7 +159,8 @@ export const confirmStagedImageUpload = async (event: APIGatewayProxyEvent): Pro
     }));
 
     // Generate temporary CloudFront URL (expires in 24 hours)
-    const imageUrl = `https://${process.env.CLOUDFRONT_IMAGES_DOMAIN}/${imageRecord.S3Key}`;
+    const domain = process.env.CLOUDFRONT_STAGING_DOMAIN || process.env.CLOUDFRONT_IMAGES_DOMAIN;
+    const imageUrl = `https://${domain}/staging/${userId}/${imageId}`;
 
     return {
       statusCode: 200,
@@ -224,7 +190,7 @@ export const confirmStagedImageUpload = async (event: APIGatewayProxyEvent): Pro
 };
 
 // Remove staged image (cleanup before TTL)
-export const removeStagedImage = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+export const deleteStagedImage = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
     const imageId = event.pathParameters?.imageId;
     const userId = event.requestContext.authorizer?.claims?.sub;

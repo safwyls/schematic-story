@@ -17,8 +17,12 @@ Globals:
           Ref: S3BucketName
         S3_IMAGES_BUCKET_NAME:
           Ref: S3ImageBucketName
+        S3_STAGING_BUCKET_NAME:
+          Ref: S3StagingBucketName
         CLOUDFRONT_IMAGES_DOMAIN:
           Fn::GetAtt: [ImagesCloudFrontDistribution, DomainName]
+        CLOUDFRONT_STAGING_DOMAIN:
+          Fn::GetAtt: [StagingImagesCloudFrontDistribution, DomainName]
         ENVIRONMENT:
           Ref: Environment
         AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
@@ -39,6 +43,10 @@ Parameters:
     Type: String
     Default: schematic-story-images
     Description: Name of the S3 bucket for images
+  S3StagingBucketName:
+    Type: String
+    Default: schematic-story-staging
+    Description: Name of the S3 bucket for staging images
   ApiCustomDomainName:
     Type: String
     Default: api.schematicstory.com
@@ -118,6 +126,34 @@ Resources:
                 StorageClass: STANDARD_IA
               - TransitionInDays: 90
                 StorageClass: GLACIER
+  
+  StagingImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3StagingBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - 'https://schematicstory.com'
+              - 'http://localhost:5173'
+            AllowedHeaders: ['*']
+            AllowedMethods: [POST, PUT, HEAD]
+            MaxAge: 300
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+          # Automatically clear out staging images after 24 hours
+          - Id: Delete24Hours
+            Status: Enabled
+            ExpirationInDays: 1
 
 #region CLOUDFRONT DISTRIBUTIONS
   SchematicsCloudFrontDistribution:
@@ -171,6 +207,25 @@ Resources:
             Compress: true
         PriceClass: PriceClass_100
 
+  StagingImagesCloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: "Schematic Story - Staging Images CDN"
+        Origins:
+          - DomainName: !GetAtt StagingImagesBucket.RegionalDomainName
+            Id: StagingImagesS3Origin
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${StagingImagesCloudFrontOriginAccessIdentity}"
+        DefaultCacheBehavior:
+          TargetOriginId: StagingImagesS3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingDisabled (for staging - don't cache)
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf # CORS-S3Origin
+          Compress: true
+        PriceClass: PriceClass_100
+
   # Origin Access Identities
   SchematicsCloudFrontOriginAccessIdentity:
     Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
@@ -183,6 +238,12 @@ Resources:
     Properties:
       CloudFrontOriginAccessIdentityConfig:
         Comment: "OAI for Schematic Story - Images"
+
+  StagingImagesCloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: "OAI for Schematic Story - Staging Images"
 
   # S3 Bucket Policies
   SchematicsBucketPolicy:
@@ -210,6 +271,19 @@ Resources:
               AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${ImagesCloudFrontOriginAccessIdentity}"
             Action: s3:GetObject
             Resource: !Sub "${ImagesBucket.Arn}/*"
+
+  StagingImagesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StagingImagesBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${StagingImagesCloudFrontOriginAccessIdentity}"
+            Action: s3:GetObject
+            Resource: !Sub "${StagingImagesBucket.Arn}/*"
 
 #region REST API
   SchematicStoryApi:
@@ -359,7 +433,7 @@ Resources:
       Handler: handlers/imageHandlers.getStagedImageUploadUrl
       Policies:
         - S3WritePolicy:
-            BucketName: !Ref S3ImageBucketName
+            BucketName: !Ref S3StagingBucketName
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTableName
       Events:
@@ -393,7 +467,7 @@ Resources:
       Handler: handlers/imageHandlers.deleteStagedImage
       Policies:
         - S3CrudPolicy:
-            BucketName: !Ref S3ImageBucketName
+            BucketName: !Ref S3StagingBucketName
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTableName
       Events:
@@ -1160,6 +1234,13 @@ Outputs:
     Value: !Ref S3ImageBucketName
     Export:
       Name: !Sub ${AWS::StackName}-S3ImagesBucketName
+  
+  S3StagingImagesBucketName:
+    Description: S3 bucket for staging image files
+    Value: !Ref S3StagingBucketName
+    Export:
+      Name: !Sub ${AWS::StackName}-S3StagingImagesBucketName
+    
 
   # CDN Outputs
   SchematicsCloudFrontDomain:
