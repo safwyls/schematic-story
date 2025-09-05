@@ -4,12 +4,14 @@ import { MantineProvider } from '@mantine/core';
 import { router } from './Router';
 import { mantineTheme } from './theme';
 import { RouterProvider } from 'react-router-dom';
-import "./styles/App.css";
-import '@mantine/notifications/styles.css';
 import { Notifications } from '@mantine/notifications';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from "react-oidc-context";
 import { UserManager } from 'oidc-client-ts';
+
+import "./styles/App.css";
+import '@mantine/notifications/styles.css';
+import '@mantine/carousel/styles.css';
 
 // Create a client
 const queryClient = new QueryClient();

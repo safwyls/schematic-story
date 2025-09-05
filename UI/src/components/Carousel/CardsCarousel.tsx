@@ -1,7 +1,5 @@
 import { Carousel } from '@mantine/carousel';
-import { Button, Paper, Text, Title, useMantineTheme } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import '@mantine/carousel/styles.css';
+import { Paper, Text } from '@mantine/core';
 import classes from './CardsCarousel.module.css';
 
 export interface ImageCard {
@@ -22,20 +20,15 @@ function Card({ image, caption }: ImageCard) {
             style={{ backgroundImage: `url(${image})` }}
             className={classes.card}
         >
-            <div>
-                <Text className={classes.category} size="xs">
-                    {caption}
-                </Text>
-            </div>
+            <Text className={classes.category} size="md">
+                {caption}
+            </Text>
         </Paper>
     );
 }
 
 export function CardsCarousel(props: CarouselProps) {
-    const theme = useMantineTheme();
-    const mobile = useMediaQuery(`(max-width: ${theme.breakpoints.md})`);
     const slides = props.cards.map((item, index) => {
-        console.log(item.image);
         return (
             <Carousel.Slide key={index} >
                 <Card key={index} {...item} />
@@ -43,12 +36,12 @@ export function CardsCarousel(props: CarouselProps) {
     )});
 
     return (
-        <Carousel
+        <Carousel 
+            withIndicators
             slideSize={{ base: '100%', sm: '100%' }}
             slideGap={2}
-            emblaOptions={{ align: 'start', slidesToScroll: 1 }}
         >
-        {slides}
+            {slides}
         </Carousel>
     );
 }

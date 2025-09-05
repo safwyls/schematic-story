@@ -3,7 +3,8 @@ import { PropsWithChildren } from "react"
 import classes from "./BadgeLink.module.css"
 
 interface BadgeLinkProps extends PropsWithChildren {
-    url: string
+    url: string,
+    color?: string
 }
 
 function wordToColor(word: string | undefined): string {
@@ -29,7 +30,7 @@ function wordToColor(word: string | undefined): string {
 export function BadgeLink(props: BadgeLinkProps) {
     return(
         <a href={props.url} aria-label={"Tag Link: "+ props.children?.toString()}>
-            <Badge className={classes.badgelink} color={wordToColor(props.children?.toString())}>
+            <Badge className={classes.badgelink} color={props.color ?? wordToColor(props.children?.toString())}>
                 {props.children}
             </Badge>
         </a>

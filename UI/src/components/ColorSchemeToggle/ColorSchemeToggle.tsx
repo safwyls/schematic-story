@@ -17,7 +17,7 @@ export function ColorSchemeToggle(props: {mobile?: boolean}) {
                 onClick={() => setColorScheme("light")}
                 variant="transparent"
                 color="yellow"
-                size="lg"
+                size="md"
                 aria-label="Light color scheme"
                 px="0.5rem"
             >
@@ -27,7 +27,7 @@ export function ColorSchemeToggle(props: {mobile?: boolean}) {
                 onClick={() => setColorScheme("dark")}
                 variant="transparent"
                 color="black"
-                size="lg"
+                size="md"
                 aria-label="Dark color scheme"
                 px="0.5rem"
             >
@@ -36,7 +36,7 @@ export function ColorSchemeToggle(props: {mobile?: boolean}) {
             <Button
                 onClick={() => setColorScheme("auto")}
                 variant="transparent"
-                size="lg"
+                size="md"
                 aria-label="Auto color scheme"
                 px="0.5rem"
             >

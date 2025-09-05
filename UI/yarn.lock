@@ -1372,17 +1372,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mantine/carousel@npm:^8.2.3":
-  version: 8.2.4
-  resolution: "@mantine/carousel@npm:8.2.4"
+"@mantine/carousel@npm:^8.2.8":
+  version: 8.2.8
+  resolution: "@mantine/carousel@npm:8.2.8"
   peerDependencies:
-    "@mantine/core": 8.2.4
-    "@mantine/hooks": 8.2.4
+    "@mantine/core": 8.2.8
+    "@mantine/hooks": 8.2.8
     embla-carousel: ">=8.0.0"
     embla-carousel-react: ">=8.0.0"
     react: ^18.x || ^19.x
     react-dom: ^18.x || ^19.x
-  checksum: 10c0/3aa2700d5e3bf6be1316af3a48ba006db7ed1490ece78417952aa8b32afbaadc3195daffcf8eb9f60f469c2135c130d32d1494f30cb5a8a8fa991a97c37e3a58
+  checksum: 10c0/0501eed3cd0562cb6eeb29b02d033e0cf80ebfb06c4821a2d790976a1261692f3cb736ae6e96a9c09cd2ea1f46b6b987f263e05bd37a1b3cd983dc7fc39fd259
   languageName: node
   linkType: hard
 
@@ -4971,7 +4971,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"embla-carousel-react@npm:^8.6.0":
+"embla-carousel-react@npm:^8.5.2":
   version: 8.6.0
   resolution: "embla-carousel-react@npm:8.6.0"
   dependencies:
@@ -4992,7 +4992,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"embla-carousel@npm:8.6.0":
+"embla-carousel@npm:8.6.0, embla-carousel@npm:^8.5.2":
   version: 8.6.0
   resolution: "embla-carousel@npm:8.6.0"
   checksum: 10c0/f4c598e7be28b70340d31ffd2bebb2472db370b0c81d9b089bf9555cf618695f35dc4a0694565c994c9ab972731123063f945aa09ff485df0df761d79c6a08ef
@@ -7292,7 +7292,7 @@ __metadata:
     "@blocknote/react": "npm:^0.35.0"
     "@eslint/js": "npm:^9.29.0"
     "@ianvs/prettier-plugin-sort-imports": "npm:^4.4.2"
-    "@mantine/carousel": "npm:^8.2.3"
+    "@mantine/carousel": "npm:^8.2.8"
     "@mantine/core": "npm:8.2.3"
     "@mantine/dropzone": "npm:^8.2.7"
     "@mantine/form": "npm:^8.2.4"
@@ -7314,7 +7314,8 @@ __metadata:
     "@vitejs/plugin-react": "npm:^4.5.2"
     axios: "npm:^1.11.0"
     dayjs: "npm:^1.11.13"
-    embla-carousel-react: "npm:^8.6.0"
+    embla-carousel: "npm:^8.5.2"
+    embla-carousel-react: "npm:^8.5.2"
     eslint: "npm:^9.29.0"
     eslint-config-mantine: "npm:^4.0.3"
     eslint-plugin-jsx-a11y: "npm:^6.10.2"

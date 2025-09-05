@@ -128,7 +128,7 @@ export function HeaderMegaMenu() {
   ));
 
   return (
-    <Box pb={60} style={{position: 'sticky', top: 0, zIndex: 1}}>
+    <Box style={{position: 'sticky', top: 0, zIndex: 1000}}>
       <header className={classes.header}>
         <Group justify="space-between">
           <Group gap={0}>
@@ -204,9 +204,11 @@ export function HeaderMegaMenu() {
                   transitionProps={{ transition: 'pop-top-right' }}
                   trigger="click"
                   withinPortal
+                  zIndex={1000000}
                 >
                   <Menu.Target>
                     <UnstyledButton
+                      py="lg"
                       className={cx(classes.user, { [classes.userActive]: userMenuOpened })}
                     >
                       <Group gap={7}>
@@ -281,10 +283,10 @@ export function HeaderMegaMenu() {
         size="100%"
         padding="md"
         hiddenFrom="md"
+        title={<SchematicStoryLogo height={40}/>}
         zIndex={1000000}
       >
         <ScrollArea h="calc(100vh - 80px" mx="-md">
-          <SchematicStoryLogo height={60}/>
           <Divider my="sm" />
 
           <NavLink label="Home" href="/" className={classes.link}/>
@@ -321,29 +323,41 @@ export function HeaderMegaMenu() {
 
           <Stack justify="center">
             {isAuthenticated 
-              ? 
-              <>
-                <NavLink
-                  label="Followed schematics"
-                  href="/schematics/following"
-                  leftSection={<IconHeart size={16} color={theme.colors.red[6]} stroke={1.5} />}
-                />
-                <NavLink
-                  label="Saved schematics"
-                  href="/schematics/saved"
-                  leftSection={<IconStar size={16} color={theme.colors.yellow[6]} stroke={1.5} />}
-                />
-                <NavLink 
-                  label="Account settings"
-                  href="/account"
-                  leftSection={<IconSettings size={16} stroke={1.5} />}
-                />
-                <NavLink 
-                  label="Logout"
-                  onClick={logout}
-                  leftSection={<IconLogout size={16} stroke={1.5} />}
-                />
-              </>
+              ?
+                <>
+                  <Group gap={7} className={classes.link}  onClick={toggleUserMenu}>
+                    {avatarLoading 
+                      ? <Loader size="xs" />
+                      : <Avatar src={avatar?.thumbnailUrl} alt={username} radius="xl" size={20} />
+                    }
+                    <Text fw={500} size="sm" lh={1} mr={3}>
+                      {username}
+                    </Text>
+                    <IconChevronDown size={16} color={theme.colors.blue[6]}/>
+                  </Group>
+                  <Collapse in={userMenuOpened}>
+                    <NavLink
+                      label="Followed schematics"
+                      href="/schematics/following"
+                      leftSection={<IconHeart size={16} color={theme.colors.red[6]} stroke={1.5} />}
+                    />
+                    <NavLink
+                      label="Saved schematics"
+                      href="/schematics/saved"
+                      leftSection={<IconStar size={16} color={theme.colors.yellow[6]} stroke={1.5} />}
+                    />
+                    <NavLink 
+                      label="Account settings"
+                      href="/account"
+                      leftSection={<IconSettings size={16} stroke={1.5} />}
+                    />
+                    <NavLink 
+                      label="Logout"
+                      onClick={logout}
+                      leftSection={<IconLogout size={16} stroke={1.5} />}
+                    />
+                  </Collapse>
+                </>
               :
                 <NavLink 
                   label="Login"
